@@ -1,0 +1,51 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+# GitHub recommends pinning actions to a commit SHA.
+# To get a newer version, you will need to update the SHA.
+# You can also reference a tag or branch, but the action may change without warning.
+name: Create and publish a Docker image
+on:
+  push:
+    branches: [ cbi-main ]
+  workflow_dispatch:
+env:
+  APP_NAME: fork-bolt-diy
+  REGISTRY: ghcr.io/constellationbrands
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version_tag: ${{ steps.version_tag.outputs.version_tag }}
+      deploy_path: ${{ steps.deploy_folder.outputs.deploy_path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Determine tag version
+        id: version_timestamp
+        run: |
+          echo "VERSION=${REF#refs/heads/}-$(git rev-parse --short=7 HEAD)" >> $GITHUB_OUTPUT
+        env:
+          REF: ${{ github.ref }}
+      - name: Replace tag version slashes with dashes
+        id: version_tag
+        run: |
+          echo "VERSION_TAG=$(echo ${{ steps.version_timestamp.outputs.VERSION }} | sed 's,/,\-,g')" >> $GITHUB_OUTPUT
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          target: bolt-ai-production
+          tags: ${{ env.REGISTRY }}/${{ env.APP_NAME }}:${{ steps.version_tag.outputs.version_tag }}
