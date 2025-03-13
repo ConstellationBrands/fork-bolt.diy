@@ -12,6 +12,7 @@ import type { ActionCallbackData } from '~/lib/runtime/message-parser';
 import { chatId } from '~/lib/persistence/useChatHistory'; // Add this import
 import { streamingState } from '~/lib/stores/streaming';
 import { NetlifyDeploymentLink } from '~/components/chat/NetlifyDeploymentLink.client';
+import { DeployToDDP } from "~/components/@settings/tabs/connections/components/DeployToDDP";
 
 interface HeaderActionButtonsProps {}
 
@@ -23,6 +24,7 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
   const previews = useStore(workbenchStore.previews);
   const activePreview = previews[activePreviewIndex];
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isDeployToDDPDialogOpen, setIsDeployToDDPDialogOpen] = useState(false);
   const isSmallViewport = useViewport(1024);
   const canHideChat = showWorkbench || !showChat;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -209,7 +211,7 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
         <div className="flex border border-bolt-elements-borderColor rounded-md overflow-hidden mr-2 text-sm">
           <Button
             active
-            disabled={isDeploying || !activePreview || isStreaming}
+            disabled={isDeploying || isStreaming}
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="px-4 hover:bg-bolt-elements-item-backgroundActive flex items-center gap-2"
           >
@@ -223,43 +225,10 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
         {isDropdownOpen && (
           <div className="absolute right-2 flex flex-col gap-1 z-50 p-1 mt-1 min-w-[13.5rem] bg-bolt-elements-background-depth-2 rounded-md shadow-lg bg-bolt-elements-backgroundDefault border border-bolt-elements-borderColor">
             <Button
-              active
+              active={false}
               onClick={() => {
-                handleDeploy();
-                setIsDropdownOpen(false);
+                setIsDeployToDDPDialogOpen(true);
               }}
-              disabled={isDeploying || !activePreview || !connection.user}
-              className="flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative"
-            >
-              <img
-                className="w-5 h-5"
-                height="24"
-                width="24"
-                crossOrigin="anonymous"
-                src="https://cdn.simpleicons.org/netlify"
-              />
-              <span className="mx-auto">{!connection.user ? 'No Account Connected' : 'Deploy to Netlify'}</span>
-              {connection.user && <NetlifyDeploymentLink />}
-            </Button>
-            <Button
-              active={false}
-              disabled
-              className="flex items-center w-full rounded-md px-4 py-2 text-sm text-bolt-elements-textTertiary gap-2"
-            >
-              <span className="sr-only">Coming Soon</span>
-              <img
-                className="w-5 h-5 bg-black p-1 rounded"
-                height="24"
-                width="24"
-                crossOrigin="anonymous"
-                src="https://cdn.simpleicons.org/vercel/white"
-                alt="vercel"
-              />
-              <span className="mx-auto">Deploy to Vercel (Coming Soon)</span>
-            </Button>
-            <Button
-              active={false}
-              disabled
               className="flex items-center w-full rounded-md px-4 py-2 text-sm text-bolt-elements-textTertiary gap-2"
             >
               <span className="sr-only">Coming Soon</span>
@@ -268,12 +237,15 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
                 height="24"
                 width="24"
                 crossOrigin="anonymous"
-                src="https://cdn.simpleicons.org/cloudflare"
-                alt="vercel"
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSTMRaAa2mpute3w9fLnlQP1dPc2V0mHK3K7Q&s"
+                alt="ddp"
               />
-              <span className="mx-auto">Deploy to Cloudflare (Coming Soon)</span>
+              <span className="mx-auto">Deploy to DDP</span>
             </Button>
           </div>
+        )}
+        {isDeployToDDPDialogOpen && (
+          <DeployToDDP isOpen={isDeployToDDPDialogOpen} onClose={() => setIsDeployToDDPDialogOpen(false)} onPush={() => {toast.info('hola');}}></DeployToDDP>
         )}
       </div>
       <div className="flex border border-bolt-elements-borderColor rounded-md overflow-hidden">
