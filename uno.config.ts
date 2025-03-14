@@ -34,18 +34,31 @@ const BASE_COLORS = {
     900: '#171717',
     950: '#0A0A0A',
   },
+  purple: {
+    50: '#EBF8FF',  // Light blue
+    100: '#BEE3F8', // Light blue
+    200: '#90CDF4', // Light blue
+    300: '#63B3ED', // Light blue
+    400: '#4299E1', // Blue
+    500: '#3182CE', // Blue
+    600: '#2B6CB0', // Darker blue
+    700: '#2C5282', // Darker blue
+    800: '#2A4365', // Darker blue
+    900: '#1A365D', // Darkest blue
+    950: '#1A0033', // Very Dark Purple (if you want to keep one purple shade)
+  },
   accent: {
-    50: '#F8F5FF',
-    100: '#F0EBFF',
-    200: '#E1D6FF',
-    300: '#CEBEFF',
-    400: '#B69EFF',
-    500: '#9C7DFF',
-    600: '#8A5FFF',
-    700: '#7645E8',
-    800: '#6234BB',
-    900: '#502D93',
-    950: '#2D1959',
+    50: '#EBF8FF',  // Light blue
+    100: '#BEE3F8', // Light blue
+    200: '#90CDF4', // Light blue
+    300: '#63B3ED', // Light blue
+    400: '#4299E1', // Blue
+    500: '#3182CE', // Blue
+    600: '#2B6CB0', // Darker blue
+    700: '#2C5282', // Darker blue
+    800: '#2A4365', // Darker blue
+    900: '#1A365D', // Darkest blue
+    950: '#1A0033', // Very Dark Purple (if you want to keep one purple shade)
   },
   green: {
     50: '#F0FDF4',
