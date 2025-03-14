@@ -16,9 +16,9 @@ body {
 :root {
   --gradient-opacity: 0.8;
 
-  --primary-color: rgba(254, 194, 64, var(--gradient-opacity)); /* Yellow-Orange */
-  --secondary-color: rgba(0, 119, 192, var(--gradient-opacity)); /* Blue */
-  --accent-color: rgba(2, 29, 91, var(--gradient-opacity)); /* Dark Blue */
+  --primary-color: rgba(2, 29, 91, var(--gradient-opacity)); /* Dark Blue */
+  --secondary-color: rgba(254, 194, 64, var(--gradient-opacity)); /* Yellow-Orange */
+  --accent-color: rgba(0, 119, 192, var(--gradient-opacity)); /* Blue */
   // --primary-color: rgba(0, 119, 192, var(--gradient-opacity)); /* Blue */
   // --secondary-color: rgba(2, 29, 91, var(--gradient-opacity)); /* Dark Blue */
   // --accent-color: rgba(254, 194, 64, var(--gradient-opacity)); /* Yellow-Orange */
