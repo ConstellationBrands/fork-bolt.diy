@@ -5,44 +5,29 @@ import { motion } from 'framer-motion';
 import { getLocalStorage } from '~/lib/persistence';
 import { classNames } from '~/utils/classNames';
 import type { GitHubUserResponse } from '~/types/GitHub';
-import { logStore } from '~/lib/stores/logs';
-import { workbenchStore } from '~/lib/stores/workbench';
-import { extractRelativePath } from '~/utils/diff';
-import { formatSize } from '~/utils/formatSize';
-import type { FileMap, File } from '~/lib/stores/files';
-import { Octokit } from '@octokit/rest';
 
-interface PushToGitHubDialogProps {
+interface DeployToDDPDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onPush: (repoName: string, username?: string, token?: string, isPrivate?: boolean) => Promise<string>;
+  onPush: (
+    repoName: string,
+    branchName: string,
+    tenantName: string,
+    environmentName: string,
+    org?: string,
+    token?: string,
+  ) => Promise<string>;
 }
 
-interface GitHubRepo {
-  name: string;
-  full_name: string;
-  html_url: string;
-  description: string;
-  stargazers_count: number;
-  forks_count: number;
-  default_branch: string;
-  updated_at: string;
-  language: string;
-  private: boolean;
-}
-
-export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps) {
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps) {
   const [repoName, setRepoName] = useState('');
   const [branchName, setBranchName] = useState('');
-  const [tenantName, setTenantName] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [tenantName, setTenantName] = useState('sales');
+  const [environmentName, setEnvironmentName] = useState('prod');
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<GitHubUserResponse | null>(null);
-  const [recentRepos, setRecentRepos] = useState<GitHubRepo[]>([]);
-  const [isFetchingRepos, setIsFetchingRepos] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [createdRepoUrl, setCreatedRepoUrl] = useState('');
-  const [pushedFiles, setPushedFiles] = useState<{ path: string; size: number }[]>([]);
 
   // Load GitHub connection on mount
   useEffect(() => {
@@ -51,70 +36,9 @@ export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps
 
       if (connection?.user && connection?.token) {
         setUser(connection.user);
-
-        // Only fetch if we have both user and token
-        if (connection.token.trim()) {
-          fetchRecentRepos(connection.token);
-        }
       }
     }
   }, [isOpen]);
-
-  const fetchRecentRepos = async (token: string) => {
-    if (!token) {
-      logStore.logError('No GitHub token available');
-      toast.error('GitHub authentication required');
-
-      return;
-    }
-
-    try {
-      setIsFetchingRepos(true);
-
-      const response = await fetch(
-        'https://api.github.com/user/repos?sort=updated&per_page=5&type=all&affiliation=owner,organization_member',
-        {
-          headers: {
-            Accept: 'application/vnd.github.v3+json',
-            Authorization: `Bearer ${token.trim()}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-
-        if (response.status === 401) {
-          toast.error('GitHub token expired. Please reconnect your account.');
-
-          // Clear invalid token
-          const connection = getLocalStorage('github_connection');
-
-          if (connection) {
-            localStorage.removeItem('github_connection');
-            setUser(null);
-          }
-        } else {
-          logStore.logError('Failed to fetch GitHub repositories', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData,
-          });
-          toast.error(`Failed to fetch repositories: ${response.statusText}`);
-        }
-
-        return;
-      }
-
-      const repos = (await response.json()) as GitHubRepo[];
-      setRecentRepos(repos);
-    } catch (error) {
-      logStore.logError('Failed to fetch GitHub repositories', { error });
-      toast.error('Failed to fetch recent repositories');
-    } finally {
-      setIsFetchingRepos(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,43 +59,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps
 
     try {
       // Check if repository exists first
-      const octokit = new Octokit({ auth: connection.token });
-
-      try {
-        await octokit.repos.get({
-          owner: connection.user.login,
-          repo: repoName,
-        });
-
-        // If we get here, the repo exists
-        const confirmOverwrite = window.confirm(
-          `Repository "${repoName}" already exists. Do you want to update it? This will add or modify files in the repository.`,
-        );
-
-        if (!confirmOverwrite) {
-          setIsLoading(false);
-          return;
-        }
-      } catch (error) {
-        // 404 means repo doesn't exist, which is what we want for new repos
-        if (error instanceof Error && 'status' in error && error.status !== 404) {
-          throw error;
-        }
-      }
-
-      const repoUrl = await onPush(repoName, connection.user.login, connection.token, isPrivate);
-      setCreatedRepoUrl(repoUrl);
-
-      // Get list of pushed files
-      const files = workbenchStore.files.get();
-      const filesList = Object.entries(files as FileMap)
-        .filter(([, dirent]) => dirent?.type === 'file' && !dirent.isBinary)
-        .map(([path, dirent]) => ({
-          path: extractRelativePath(path),
-          size: new TextEncoder().encode((dirent as File).content || '').length,
-        }));
-
-      setPushedFiles(filesList);
+      await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
       setShowSuccessDialog(true);
     } catch (error) {
       console.error('Error pushing to GitHub:', error);
@@ -184,10 +72,9 @@ export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps
   const handleClose = () => {
     setRepoName('');
     setBranchName('');
-    setTenantName('');
-    setIsPrivate(true);
+    setTenantName('genai');
+    setEnvironmentName('prod');
     setShowSuccessDialog(false);
-    setCreatedRepoUrl('');
     onClose();
   };
 
@@ -238,18 +125,6 @@ export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps
                       <div className="i-ph:github-logo w-4 h-4" />
                       View Repository
                     </motion.a>
-                    <motion.button
-                      onClick={() => {
-                        navigator.clipboard.writeText(createdRepoUrl);
-                        toast.success('URL copied to clipboard');
-                      }}
-                      className="px-4 py-2 rounded-lg bg-[#F5F5F5] dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-[#E5E5E5] dark:hover:bg-[#252525] text-sm inline-flex items-center gap-2"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <div className="i-ph:copy w-4 h-4" />
-                      Copy URL
-                    </motion.button>
                     <motion.button
                       onClick={handleClose}
                       className="px-4 py-2 rounded-lg bg-[#F5F5F5] dark:bg-[#1A1A1A] text-gray-600 dark:text-gray-400 hover:bg-[#E5E5E5] dark:hover:bg-[#252525] text-sm"
@@ -340,9 +215,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps
                     <Dialog.Title className="text-lg font-medium text-gray-900 dark:text-white">
                       Deploy To DDP
                     </Dialog.Title>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Deploy an existing repo to DDP
-                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Deploy an existing repo to DDP</p>
                   </div>
                   <Dialog.Close
                     className="ml-auto p-2 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
@@ -376,70 +249,6 @@ export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps
                     />
                   </div>
 
-                  {recentRepos.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-600 dark:text-gray-400">Recent Repositories</label>
-                      <div className="space-y-2">
-                        {recentRepos.map((repo) => (
-                          <motion.button
-                            key={repo.full_name}
-                            type="button"
-                            onClick={() => setRepoName(repo.name)}
-                            className="w-full p-3 text-left rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 hover:bg-bolt-elements-background-depth-3 dark:hover:bg-bolt-elements-background-depth-4 transition-colors group"
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="i-ph:git-repository w-4 h-4 text-purple-500" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-purple-500">
-                                  {repo.name}
-                                </span>
-                              </div>
-                              {repo.private && (
-                                <span className="text-xs px-2 py-1 rounded-full bg-purple-500/10 text-purple-500">
-                                  Private
-                                </span>
-                              )}
-                            </div>
-                            {repo.description && (
-                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                                {repo.description}
-                              </p>
-                            )}
-                            <div className="mt-2 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                              {repo.language && (
-                                <span className="flex items-center gap-1">
-                                  <div className="i-ph:code w-3 h-3" />
-                                  {repo.language}
-                                </span>
-                              )}
-                              <span className="flex items-center gap-1">
-                                <div className="i-ph:star w-3 h-3" />
-                                {repo.stargazers_count.toLocaleString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <div className="i-ph:git-fork w-3 h-3" />
-                                {repo.forks_count.toLocaleString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <div className="i-ph:clock w-3 h-3" />
-                                {new Date(repo.updated_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {isFetchingRepos && (
-                    <div className="flex items-center justify-center py-4 text-gray-500 dark:text-gray-400">
-                      <div className="i-ph:spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Loading repositories...
-                    </div>
-                  )}
-
                   <div className="space-y-2">
                     <label htmlFor="branchName" className="text-sm text-gray-600 dark:text-gray-400">
                       Branch Name
@@ -456,18 +265,35 @@ export function DeployToDDP({ isOpen, onClose, onPush }: PushToGitHubDialogProps
                   </div>
 
                   <div className="space-y-2">
+                    <label htmlFor="environmentName" className="text-sm text-gray-600 dark:text-gray-400">
+                      Environment
+                    </label>
+                    <select
+                      id="environmentName"
+                      value={environmentName}
+                      onChange={(e) => setEnvironmentName(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-[#E5E5E5] dark:border-[#1A1A1A] text-gray-900 dark:text-white placeholder-gray-400"
+                      required
+                    >
+                      <option value="prod">Production</option>
+                      <option value="nonprod">Non Production</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
                     <label htmlFor="tenantName" className="text-sm text-gray-600 dark:text-gray-400">
                       Tenant Name
                     </label>
-                    <input
+                    <select
                       id="tenantName"
-                      type="text"
                       value={tenantName}
                       onChange={(e) => setTenantName(e.target.value)}
-                      placeholder=""
                       className="w-full px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-[#E5E5E5] dark:border-[#1A1A1A] text-gray-900 dark:text-white placeholder-gray-400"
                       required
-                    />
+                    >
+                      <option value="genai">Genai</option>
+                      <option value="sandbox">Sandbox</option>
+                    </select>
                   </div>
 
                   <div className="pt-4 flex gap-2">

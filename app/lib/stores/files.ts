@@ -51,6 +51,10 @@ export class FilesStore {
     return this.#size;
   }
 
+  clearFiles() {
+    this.files.set({}); // Set files to an empty object
+  }
+
   constructor(webcontainerPromise: Promise<WebContainer>) {
     this.#webcontainer = webcontainerPromise;
 
@@ -124,6 +128,29 @@ export class FilesStore {
       if (!this.#modifiedFiles.has(filePath)) {
         this.#modifiedFiles.set(filePath, oldContent);
       }
+
+      // we immediately update the file and don't rely on the `change` event coming from the watcher
+      this.files.setKey(filePath, { type: 'file', content, isBinary: false });
+
+      logger.info('File updated');
+    } catch (error) {
+      logger.error('Failed to update file content\n\n', error);
+
+      throw error;
+    }
+  }
+
+  async save(filePath: string, content: string) {
+    const webcontainer = await this.#webcontainer;
+
+    try {
+      const relativePath = path.relative(webcontainer.workdir, filePath);
+
+      if (!relativePath) {
+        throw new Error(`EINVAL: invalid file path, write '${relativePath}'`);
+      }
+
+      await webcontainer.fs.writeFile(relativePath, content);
 
       // we immediately update the file and don't rely on the `change` event coming from the watcher
       this.files.setKey(filePath, { type: 'file', content, isBinary: false });

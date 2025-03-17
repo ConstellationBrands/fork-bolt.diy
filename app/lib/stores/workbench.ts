@@ -18,6 +18,8 @@ import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
+import { Buffer } from 'node:buffer';
+import * as yaml from 'js-yaml';
 
 const { saveAs } = fileSaver;
 
@@ -542,6 +544,121 @@ export class WorkbenchStore {
       });
 
       alert(`Repository created and code pushed: ${repo.html_url}`);
+    } catch (error) {
+      console.error('Error pushing to GitHub:', error);
+      throw error; // Rethrow the error for further handling
+    }
+  }
+
+  async deployToDDP(
+    repoName: string,
+    branchName: string,
+    tenantName: string,
+    environmentName: string,
+    githubUsername?: string,
+    ghToken?: string,
+  ) {
+    this.#filesStore.clearFiles();
+
+    try {
+      // Use cookies if username and token are not provided
+      const githubToken = ghToken || Cookies.get('githubToken');
+      const owner = githubUsername || Cookies.get('githubUsername');
+
+      console.log(`OWNER: ${owner}`);
+      console.log(`TENANT: ${tenantName}`);
+      console.log(`PATH: ${environmentName}`);
+
+      if (!githubToken || !owner) {
+        throw new Error('GitHub token or username is not set in cookies or provided.');
+      }
+
+      // Initialize Octokit with the auth token
+      const octokit = new Octokit({ auth: githubToken });
+
+      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+
+      try {
+        const resp = await octokit.repos.get({ owner, repo: `cd-${tenantName}` });
+        repo = resp.data;
+        console.log(`REPO: ${repo}`);
+      } catch (error) {
+        console.log('Repo not found' + error);
+        throw error;
+      }
+
+      const deployData = {
+        image: {
+          tag: 'latest',
+          repository: `ghcr.io/constellationbrands/${repoName}`,
+        },
+      };
+
+      const deployYamlString = yaml.dump(deployData);
+
+      const blobDeploy = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content: Buffer.from(deployYamlString).toString('base64'),
+        encoding: 'base64',
+      });
+
+      const blobValues = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content: Buffer.from('').toString('base64'),
+        encoding: 'base64',
+      });
+
+      const blobs = [
+        { path: `${repoName}/${environmentName}/${branchName}/.deploy.yaml`, sha: blobDeploy.data.sha },
+        { path: `${repoName}/${environmentName}/${branchName}/values.yaml`, sha: blobValues.data.sha },
+      ];
+
+      const validBlobs = blobs.filter(Boolean); // Filter out any undefined blobs
+
+      if (validBlobs.length === 0) {
+        throw new Error('No valid files to push');
+      }
+
+      // Get the latest commit SHA (assuming main branch, update dynamically if needed)
+      const { data: ref } = await octokit.git.getRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+      });
+      const latestCommitSha = ref.object.sha;
+      console.log(`COMMIT ${latestCommitSha}`);
+
+      // Create a new tree
+      const { data: newTree } = await octokit.git.createTree({
+        owner: repo.owner.login,
+        repo: repo.name,
+        base_tree: latestCommitSha,
+        tree: validBlobs.map((blob) => ({
+          path: blob!.path,
+          mode: '100644',
+          type: 'blob',
+          sha: blob!.sha,
+        })),
+      });
+
+      // Create a new commit
+      const { data: newCommit } = await octokit.git.createCommit({
+        owner: repo.owner.login,
+        repo: repo.name,
+        message: `Added ${repoName} for variant ${branchName}`,
+        tree: newTree.sha,
+        parents: [latestCommitSha],
+      });
+
+      // Update the reference
+      await octokit.git.updateRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+        sha: newCommit.sha,
+      });
     } catch (error) {
       console.error('Error pushing to GitHub:', error);
       throw error; // Rethrow the error for further handling
