@@ -386,6 +386,15 @@ export const Workbench = memo(
                         <div className="i-ph:code" />
                         Download Code
                       </PanelHeaderButton>
+                      <PanelHeaderButton
+                        className="mr-1 text-sm"
+                        onClick={() => {
+                          workbenchStore.downloadZip();
+                        }}
+                      >
+                        <div className="i-ph:code" />
+                        Preview on DDP
+                      </PanelHeaderButton>
                       <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
                         {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
                         {isSyncing ? 'Syncing...' : 'Sync Files'}
