@@ -59,7 +59,9 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
 
     try {
       // Check if repository exists first
-      await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
+      // await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
+      const org = import.meta.env.VITE_ORGANIZATION_NAME;
+      await onPush(repoName, branchName, tenantName, environmentName, org, connection.token);
       setShowSuccessDialog(true);
     } catch (error) {
       console.error('Error pushing to GitHub:', error);
@@ -233,6 +235,13 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
                   </div>
                 </div>
 
+                <div className="bg-yellow-100 border border-yellow-300 rounded-md p-4 mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="i-ph:warning-circle text-yellow-500 w-5 h-5" />
+                    <p className="text-sm text-yellow-700">Deploying to DDP will erase your preview environment</p>
+                  </div>
+                </div>
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <label htmlFor="repoName" className="text-sm text-gray-600 dark:text-gray-400">
@@ -251,7 +260,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
 
                   <div className="space-y-2">
                     <label htmlFor="branchName" className="text-sm text-gray-600 dark:text-gray-400">
-                      Branch Name
+                      Variant Name
                     </label>
                     <input
                       id="branchName"

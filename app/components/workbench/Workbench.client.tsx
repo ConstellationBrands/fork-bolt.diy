@@ -24,6 +24,7 @@ import { EditorPanel } from './EditorPanel';
 import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
+import { description } from '~/lib/persistence';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -385,6 +386,32 @@ export const Workbench = memo(
                       >
                         <div className="i-ph:code" />
                         Download Code
+                      </PanelHeaderButton>
+                      <PanelHeaderButton
+                        className="mr-1 text-sm"
+                        onClick={() => {
+                          const projectName = workbenchStore.projectName;
+                          const commitMessage = `Updating ${projectName}`;
+
+                          if (!workbenchStore.description) {
+                            alert('Please set a project name');
+                            throw new Error('Please set a project name');
+                          }
+
+                          workbenchStore.generateProjectZipFile().then((zipFile) => {
+                            workbenchStore
+                              .pushToStageRepo(projectName, commitMessage, zipFile)
+                              .then(() => {
+                                alert(`Success uploaded to: ${projectName}-preview.cbrands.com`);
+                              })
+                              .catch(() => {
+                                alert('There was an error uploading...');
+                              });
+                          });
+                        }}
+                      >
+                        <div className="i-ph:eye" />
+                        Preview on DDP
                       </PanelHeaderButton>
                       <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
                         {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}

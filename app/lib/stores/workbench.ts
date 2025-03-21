@@ -14,7 +14,7 @@ import fileSaver from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
 import { extractRelativePath } from '~/utils/diff';
-import { description } from '~/lib/persistence';
+import { description, chatId } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
@@ -104,6 +104,15 @@ export class WorkbenchStore {
   }
   clearAlert() {
     this.actionAlert.set(undefined);
+  }
+
+  get projectName() {
+    const project = (description.value ?? 'project').toLocaleLowerCase().split(' ').join('-');
+    return `${project}-${chatId.value}`;
+  }
+
+  get description() {
+    return (description.value ?? '').toLocaleLowerCase().split(' ').join('-');
   }
 
   toggleTerminal(value?: boolean) {
@@ -410,6 +419,37 @@ export class WorkbenchStore {
     saveAs(content, `${uniqueProjectName}.zip`);
   }
 
+  async generateProjectZipFile() {
+    const zip = new JSZip();
+    const files = this.files.get();
+
+    // const projectName = (description.value ?? 'project').toLocaleLowerCase().split(' ').join('_');
+
+    for (const [filePath, dirent] of Object.entries(files)) {
+      if (dirent?.type === 'file' && !dirent.isBinary) {
+        const relativePath = extractRelativePath(filePath);
+
+        // split the path into segments
+        const pathSegments = relativePath.split('/');
+
+        // if there's more than one segment, we need to create folders
+        if (pathSegments.length > 1) {
+          let currentFolder = zip;
+
+          for (let i = 0; i < pathSegments.length - 1; i++) {
+            currentFolder = currentFolder.folder(pathSegments[i])!;
+          }
+          currentFolder.file(pathSegments[pathSegments.length - 1], dirent.content);
+        } else {
+          // if there's only one segment, it's a file in the root
+          zip.file(relativePath, dirent.content);
+        }
+      }
+    }
+
+    return await zip.generateAsync({ type: 'base64' });
+  }
+
   async syncFiles(targetHandle: FileSystemDirectoryHandle) {
     const files = this.files.get();
     const syncedFiles = [];
@@ -550,6 +590,102 @@ export class WorkbenchStore {
     }
   }
 
+  async pushToStageRepo(projectName: string, commitMessage: string, content: string) {
+    try {
+      const githubToken = Cookies.get('githubToken');
+      const owner = import.meta.env.VITE_ORGANIZATION_NAME;
+
+      if (!owner) {
+        throw new Error('GitHub token or username is not set in cookies or provided.');
+      }
+
+      const octokit = new Octokit({ auth: githubToken });
+
+      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+
+      try {
+        const resp = await octokit.repos.get({ owner, repo: 'stage-repo' });
+        repo = resp.data;
+        console.log(`REPO: ${repo}`);
+      } catch (error) {
+        console.log('Repo not found' + error);
+        throw error;
+      }
+
+      const deployYamlData = {
+        image: 'v1.0.0',
+      };
+
+      const deployYamlString = yaml.dump(deployYamlData);
+
+      const deployYamlBlob = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content: Buffer.from(deployYamlString).toString('base64'),
+        encoding: 'base64',
+      });
+
+      const zipBlob = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content,
+        encoding: 'base64',
+      });
+
+      const blobs = [
+        { path: `${projectName}/deployment.yaml`, sha: deployYamlBlob.data.sha },
+        { path: `${projectName}/project.zip`, sha: zipBlob.data.sha },
+      ];
+
+      const validBlobs = blobs.filter(Boolean);
+
+      if (validBlobs.length == 0) {
+        throw new Error('No valid files to push');
+      }
+
+      const { data: ref } = await octokit.git.getRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+      });
+      const latestCommitSha = ref.object.sha;
+      console.log(`COMMIT ${latestCommitSha}`);
+
+      // Create a new tree
+      const { data: newTree } = await octokit.git.createTree({
+        owner: repo.owner.login,
+        repo: repo.name,
+        base_tree: latestCommitSha,
+        tree: validBlobs.map((blob) => ({
+          path: blob!.path,
+          mode: '100644',
+          type: 'blob',
+          sha: blob!.sha,
+        })),
+      });
+
+      // Create a new commit
+      const { data: newCommit } = await octokit.git.createCommit({
+        owner: repo.owner.login,
+        repo: repo.name,
+        message: commitMessage,
+        tree: newTree.sha,
+        parents: [latestCommitSha],
+      });
+
+      // Update the reference
+      await octokit.git.updateRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+        sha: newCommit.sha,
+      });
+    } catch (error) {
+      console.error('Error pushing to Github', error);
+      throw error;
+    }
+  }
+
   async deployToDDP(
     repoName: string,
     branchName: string,
@@ -590,7 +726,7 @@ export class WorkbenchStore {
       const deployData = {
         image: {
           tag: 'latest',
-          repository: `ghcr.io/constellationbrands/${repoName}`,
+          repository: `ghcr.io/${githubUsername?.toLowerCase()}/${repoName}`,
         },
       };
 
@@ -664,6 +800,83 @@ export class WorkbenchStore {
       throw error; // Rethrow the error for further handling
     }
   }
+
+  async removeRepoFromStage(projectName: string) {
+    try {
+      const githubToken = Cookies.get('githubToken');
+      const owner = import.meta.env.VITE_ORGANIZATION_NAME;
+
+      if (!owner) {
+        throw new Error('GitHub token or username is not set in cookies or provided.');
+      }
+
+      const octokit = new Octokit({ auth: githubToken });
+
+      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+
+      try {
+        const resp = await octokit.repos.get({ owner, repo: 'stage-repo' });
+        repo = resp.data;
+        console.log(`REPO: ${repo}`);
+      } catch (error) {
+        console.log('Repo not found' + error);
+        throw error;
+      }
+
+      const blobs = [
+        { path: `${projectName}`, sha: null },
+      ];
+
+      const validBlobs = blobs.filter(Boolean);
+
+      if (validBlobs.length == 0) {
+        throw new Error('No valid files to push');
+      }
+
+      const { data: ref } = await octokit.git.getRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+      });
+      const latestCommitSha = ref.object.sha;
+      console.log(`COMMIT ${latestCommitSha}`);
+
+      // Create a new tree
+      const { data: newTree } = await octokit.git.createTree({
+        owner: repo.owner.login,
+        repo: repo.name,
+        base_tree: latestCommitSha,
+        tree: validBlobs.map((blob) => ({
+          path: blob!.path,
+          mode: '100644',
+          type: 'blob',
+          sha: blob!.sha,
+        })),
+      });
+
+      // Create a new commit
+      const { data: newCommit } = await octokit.git.createCommit({
+        owner: repo.owner.login,
+        repo: repo.name,
+        message: `removed ${projectName}`,
+        tree: newTree.sha,
+        parents: [latestCommitSha],
+      });
+
+      // Update the reference
+      await octokit.git.updateRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+        sha: newCommit.sha,
+      });
+
+    } catch (error) {
+      console.error('Error deleting preview environment', error);
+      throw error;
+    }
+  }
+
 }
 
 export const workbenchStore = new WorkbenchStore();

@@ -84,7 +84,11 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
             onPush={async (repoName, branchName, tenantName, environmentName, org, token) => {
               try {
                 console.log(`TENANT2: ${tenantName}`);
-                await workbenchStore.deployToDDP(repoName, branchName, tenantName, environmentName, org, token);
+                await workbenchStore
+                  .deployToDDP(repoName, branchName, tenantName, environmentName, org, token)
+                  .then(() => {
+                    workbenchStore.removeRepoFromStage(workbenchStore.projectName);
+                  });
 
                 return `https://github.com/${org}/${repoName}`;
               } catch (error) {
