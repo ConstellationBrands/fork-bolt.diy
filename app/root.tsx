@@ -5,7 +5,7 @@ import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
 import { createHead } from 'remix-island';
-import { useEffect } from 'react';
+import { useEffect, useState } from "react";
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ClientOnly } from 'remix-utils/client-only';
@@ -82,9 +82,53 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 import { logStore } from './lib/stores/logs';
+import type { GitHubConnection, GitHubUserResponse } from '~/types/GitHub';
+import Cookies from 'js-cookie';
+import { toast } from 'react-toastify';
 
 export default function App() {
   const theme = useStore(themeStore);
+  const [connection, setConnection] = useState<GitHubConnection>({
+    user: null,
+    token: '',
+    tokenType: 'classic',
+  });
+
+  const fetchGithubUser = async () => {
+    try {
+      const token = import.meta.env.VITE_GITHUB_TOKEN || process.env.VITE_GITHUB_TOKEN;
+
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Invalid token or unauthorized');
+      }
+
+      const data = (await response.json()) as GitHubUserResponse;
+      const newConnection: GitHubConnection = {
+        user: data,
+        token,
+        tokenType: connection.tokenType,
+      };
+
+      localStorage.setItem('github_connection', JSON.stringify(newConnection));
+      Cookies.set('githubToken', token);
+      Cookies.set('githubUsername', data.login);
+      Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
+
+      setConnection(newConnection);
+      toast.success('Successfully connected to GitHub');
+    } catch (error) {
+      logStore.logError('Failed to authenticate with GitHub', { error });
+      toast.error('Failed to connect to GitHub');
+      setConnection({ user: null, token: '', tokenType: 'classic' });
+    } finally {
+    }
+  };
 
   useEffect(() => {
     logStore.logSystem('Application initialized', {
@@ -93,6 +137,7 @@ export default function App() {
       userAgent: navigator.userAgent,
       timestamp: new Date().toISOString(),
     });
+    fetchGithubUser();
   }, []);
 
   return (
