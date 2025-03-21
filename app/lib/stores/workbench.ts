@@ -612,16 +612,48 @@ export class WorkbenchStore {
         throw error;
       }
 
-      const deployYamlData = {
-        image: 'v1.0.0',
+      const chartYamlData = {
+        apiVersion: 'v2',
+        name: projectName,
+        description: 'A Helm chart for Kubernetes',
+        version: '0.1.0',
+        appVersion: '1.0',
+
+        dependencies: [
+          {
+            name: 'base',
+            version: '0.1.0',
+            repository: 'file://../../base',
+          },
+        ],
       };
 
-      const deployYamlString = yaml.dump(deployYamlData);
+      const chartYamlString = yaml.dump(chartYamlData);
 
-      const deployYamlBlob = await octokit.git.createBlob({
+      const chartYamlBlob = await octokit.git.createBlob({
         owner: repo.owner.login,
         repo: repo.name,
-        content: Buffer.from(deployYamlString).toString('base64'),
+        content: Buffer.from(chartYamlString).toString('base64'),
+        encoding: 'base64',
+      });
+
+      const configmapYamlData = {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: {
+          name: '{{ .Release.Name }}-src',
+        },
+        data: {
+          'app.zip.txt': `{{- .Files.Get "files/app.zip" | b64enc | nindent 4 }}`,
+        },
+      };
+
+      const configmapYamlString = yaml.dump(configmapYamlData);
+
+      const configmapYamlBlob = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content: Buffer.from(configmapYamlString).toString('base64'),
         encoding: 'base64',
       });
 
@@ -633,8 +665,9 @@ export class WorkbenchStore {
       });
 
       const blobs = [
-        { path: `${projectName}/deployment.yaml`, sha: deployYamlBlob.data.sha },
-        { path: `${projectName}/project.zip`, sha: zipBlob.data.sha },
+        { path: `${projectName}/Chart.yaml`, sha: chartYamlBlob.data.sha },
+        { path: `${projectName}/files/app.zip`, sha: zipBlob.data.sha },
+        { path: `${projectName}/templates/configmap.yaml`, sha: configmapYamlBlob.data.sha },
       ];
 
       const validBlobs = blobs.filter(Boolean);
@@ -723,19 +756,10 @@ export class WorkbenchStore {
         throw error;
       }
 
-      const deployData = {
-        image: {
-          tag: 'latest',
-          repository: `ghcr.io/${githubUsername?.toLowerCase()}/${repoName}`,
-        },
-      };
-
-      const deployYamlString = yaml.dump(deployData);
-
       const blobDeploy = await octokit.git.createBlob({
         owner: repo.owner.login,
         repo: repo.name,
-        content: Buffer.from(deployYamlString).toString('base64'),
+        content: Buffer.from('').toString('base64'),
         encoding: 'base64',
       });
 
