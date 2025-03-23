@@ -5,7 +5,7 @@ import tailwindReset from '@unocss/reset/tailwind-compat.css?url';
 import { themeStore } from './lib/stores/theme';
 import { stripIndents } from './utils/stripIndent';
 import { createHead } from 'remix-island';
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ClientOnly } from 'remix-utils/client-only';
@@ -85,6 +85,7 @@ import { logStore } from './lib/stores/logs';
 import type { GitHubConnection, GitHubUserResponse } from '~/types/GitHub';
 import Cookies from 'js-cookie';
 import { toast } from 'react-toastify';
+// import { userLoader } from '@remix-run/react';
 
 export default function App() {
   const theme = useStore(themeStore);
@@ -96,7 +97,12 @@ export default function App() {
 
   const fetchGithubUser = async () => {
     try {
-      const token = import.meta.env.VITE_GITHUB_TOKEN || process.env.VITE_GITHUB_TOKEN;
+      const secretsResponse = await fetch('/api/secrets');
+      const jsonData = await secretsResponse.json();
+
+      const token = jsonData.githubToken;
+
+      console.log(`EL TOKEN ${token}`);
 
       const response = await fetch('https://api.github.com/user', {
         headers: {
