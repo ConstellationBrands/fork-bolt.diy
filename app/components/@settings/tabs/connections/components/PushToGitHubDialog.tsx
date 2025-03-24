@@ -11,6 +11,7 @@ import { extractRelativePath } from '~/utils/diff';
 import { formatSize } from '~/utils/formatSize';
 import type { FileMap, File } from '~/lib/stores/files';
 import { Octokit } from '@octokit/rest';
+import { connectionStore } from "~/lib/stores/connection";
 
 interface PushToGitHubDialogProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
   // Load GitHub connection on mount
   useEffect(() => {
     if (isOpen) {
-      const connection = getLocalStorage('github_connection');
+      const connection = connectionStore.value;
 
       if (connection?.user && connection?.token) {
         setUser(connection.user);
@@ -86,10 +87,11 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
           toast.error('GitHub token expired. Please reconnect your account.');
 
           // Clear invalid token
-          const connection = getLocalStorage('github_connection');
+          const connection = connectionStore.value;
 
-          if (connection) {
-            localStorage.removeItem('github_connection');
+          if (connection?.user) {
+            connectionStore.set({ user: null, token: '', tokenType: 'classic' });
+            // localStorage.removeItem('github_connection');
             setUser(null);
           }
         } else {
@@ -117,7 +119,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const connection = getLocalStorage('github_connection');
+    const connection = connectionStore.value;
 
     if (!connection?.token || !connection?.user) {
       toast.error('Please connect your GitHub account in Settings > Connections first');

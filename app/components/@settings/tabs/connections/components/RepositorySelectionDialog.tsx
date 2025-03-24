@@ -7,6 +7,7 @@ import { getLocalStorage } from '~/lib/persistence';
 import { motion } from 'framer-motion';
 import { formatSize } from '~/utils/formatSize';
 import { Input } from '~/components/ui/Input';
+import { connectionStore } from "~/lib/stores/connection";
 
 interface GitHubTreeResponse {
   tree: Array<{
@@ -147,7 +148,7 @@ export function RepositorySelectionDialog({ isOpen, onClose, onSelect }: Reposit
   }, [isOpen, activeTab]);
 
   const fetchUserRepos = async () => {
-    const connection = getLocalStorage('github_connection');
+    const connection = connectionStore.value;
 
     if (!connection?.token) {
       toast.error('Please connect your GitHub account first');
@@ -240,7 +241,7 @@ export function RepositorySelectionDialog({ isOpen, onClose, onSelect }: Reposit
     try {
       const response = await fetch(`https://api.github.com/repos/${repo.full_name}/branches`, {
         headers: {
-          Authorization: `Bearer ${getLocalStorage('github_connection')?.token}`,
+          Authorization: `Bearer ${connectionStore.value?.token}`,
         },
       });
 
@@ -290,7 +291,7 @@ export function RepositorySelectionDialog({ isOpen, onClose, onSelect }: Reposit
         .split('/')
         .slice(-2);
 
-      const connection = getLocalStorage('github_connection');
+      const connection = connectionStore.value;
       const headers: HeadersInit = connection?.token ? { Authorization: `Bearer ${connection.token}` } : {};
       const repoObjResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
         headers,

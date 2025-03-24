@@ -4,6 +4,8 @@ import { toast } from 'react-toastify';
 import { logStore } from '~/lib/stores/logs';
 import { classNames } from '~/utils/classNames';
 import Cookies from 'js-cookie';
+import { tokenStore } from '~/lib/stores/token';
+import { connectionStore } from '~/lib/stores/connection';
 
 interface GitHubUserResponse {
   login: string;
@@ -98,10 +100,14 @@ export default function GithubConnection() {
         tokenType: connection.tokenType,
       };
 
-      localStorage.setItem('github_connection', JSON.stringify(newConnection));
-      Cookies.set('githubToken', token);
+      // localStorage.setItem('github_connection', JSON.stringify(newConnection));
+      connectionStore.set(newConnection);
+
+      // Cookies.set('githubToken', token);
+      tokenStore.set(token);
       Cookies.set('githubUsername', data.login);
-      Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
+
+      // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
 
       setConnection(newConnection);
 
@@ -202,7 +208,7 @@ export default function GithubConnection() {
   };
 
   useEffect(() => {
-    const savedConnection = localStorage.getItem('github_connection');
+    const savedConnection = connectionStore.value;
 
     if (savedConnection) {
       const parsed = JSON.parse(savedConnection);
@@ -229,8 +235,11 @@ export default function GithubConnection() {
 
     const token = connection.token;
     const data = connection.user;
-    Cookies.set('githubToken', token);
-    Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
+
+    // Cookies.set('githubToken', token);
+    tokenStore.set(token);
+
+    // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
 
     if (data) {
       Cookies.set('githubUsername', data.login);
@@ -247,7 +256,7 @@ export default function GithubConnection() {
   };
 
   const handleDisconnect = () => {
-    localStorage.removeItem('github_connection');
+    connectionStore.set({ user: null, token: '', tokenType: 'classic' });
     setConnection({ user: null, token: '', tokenType: 'classic' });
     toast.success('Disconnected from GitHub');
   };

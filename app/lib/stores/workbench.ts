@@ -20,6 +20,7 @@ import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
 import { Buffer } from 'node:buffer';
 import * as yaml from 'js-yaml';
+import { tokenStore } from "~/lib/stores/token";
 
 const { saveAs } = fileSaver;
 
@@ -484,7 +485,7 @@ export class WorkbenchStore {
   async pushToGitHub(repoName: string, commitMessage?: string, githubUsername?: string, ghToken?: string) {
     try {
       // Use cookies if username and token are not provided
-      const githubToken = ghToken || Cookies.get('githubToken');
+      const githubToken = tokenStore.value
       const owner = githubUsername || Cookies.get('githubUsername');
 
       if (!githubToken || !owner) {
@@ -592,7 +593,7 @@ export class WorkbenchStore {
 
   async pushToStageRepo(projectName: string, commitMessage: string, content: string) {
     try {
-      const githubToken = Cookies.get('githubToken');
+      const githubToken = tokenStore.value;
       const owner = import.meta.env.VITE_ORGANIZATION_NAME;
 
       if (!owner) {
@@ -731,7 +732,7 @@ export class WorkbenchStore {
 
     try {
       // Use cookies if username and token are not provided
-      const githubToken = ghToken || Cookies.get('githubToken');
+      const githubToken = ghToken || tokenStore.value;
       const owner = githubUsername || Cookies.get('githubUsername');
 
       console.log(`OWNER: ${owner}`);
@@ -827,7 +828,7 @@ export class WorkbenchStore {
 
   async removeRepoFromStage(projectName: string) {
     try {
-      const githubToken = Cookies.get('githubToken');
+      const githubToken = tokenStore.value;
       const owner = import.meta.env.VITE_ORGANIZATION_NAME;
 
       if (!owner) {

@@ -85,6 +85,9 @@ import { logStore } from './lib/stores/logs';
 import type { GitHubConnection, GitHubUserResponse } from '~/types/GitHub';
 import Cookies from 'js-cookie';
 import { toast } from 'react-toastify';
+import { tokenStore } from '~/lib/stores/token';
+import { connectionStore } from '~/lib/stores/connection';
+
 // import { userLoader } from '@remix-run/react';
 
 export default function App() {
@@ -121,10 +124,12 @@ export default function App() {
         tokenType: connection.tokenType,
       };
 
-      localStorage.setItem('github_connection', JSON.stringify(newConnection));
-      Cookies.set('githubToken', token);
+      // localStorage.setItem('github_connection', JSON.stringify(newConnection));
+      connectionStore.set(newConnection);
+      // Cookies.set('githubToken', token);
+      tokenStore.set(token);
       Cookies.set('githubUsername', data.login);
-      Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
+      // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
 
       setConnection(newConnection);
       toast.success('Successfully connected to GitHub');

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { getLocalStorage } from '~/lib/persistence';
 import { classNames } from '~/utils/classNames';
 import type { GitHubUserResponse } from '~/types/GitHub';
+import { connectionStore } from "~/lib/stores/connection";
 
 interface DeployToDDPDialogProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
   // Load GitHub connection on mount
   useEffect(() => {
     if (isOpen) {
-      const connection = getLocalStorage('github_connection');
+      const connection = connectionStore.value;
 
       if (connection?.user && connection?.token) {
         setUser(connection.user);
@@ -43,7 +44,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const connection = getLocalStorage('github_connection');
+    const connection = connectionStore.value;
 
     if (!connection?.token || !connection?.user) {
       toast.error('Please connect your GitHub account in Settings > Connections first');
