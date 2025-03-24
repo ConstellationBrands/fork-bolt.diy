@@ -227,13 +227,13 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
                   </Dialog.Close>
                 </div>
 
-                <div className="flex items-center gap-3 mb-6 p-3 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg">
-                  <img src={user.avatar_url} alt={user.login} className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name || user.login}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">@{user.login}</p>
-                  </div>
-                </div>
+                {/*<div className="flex items-center gap-3 mb-6 p-3 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg">*/}
+                {/*  <img src={user.avatar_url} alt={user.login} className="w-10 h-10 rounded-full" />*/}
+                {/*  <div>*/}
+                {/*    <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name || user.login}</p>*/}
+                {/*    <p className="text-sm text-gray-500 dark:text-gray-400">@{user.login}</p>*/}
+                {/*  </div>*/}
+                {/*</div>*/}
 
                 <div className="bg-yellow-100 border border-yellow-300 rounded-md p-4 mb-4">
                   <div className="flex items-center gap-2">

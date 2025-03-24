@@ -20,7 +20,7 @@ const TAB_ICONS: Record<TabType, string> = {
   'cloud-providers': 'i-ph:cloud-fill',
   'local-providers': 'i-ph:desktop-fill',
   'service-status': 'i-ph:activity-fill',
-  connection: 'i-ph:wifi-high-fill',
+  // connection: 'i-ph:wifi-high-fill',
   debug: 'i-ph:bug-fill',
   'event-logs': 'i-ph:list-bullets-fill',
   update: 'i-ph:arrow-clockwise-fill',
