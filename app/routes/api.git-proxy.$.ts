@@ -7,7 +7,6 @@ const ALLOW_HEADERS = [
   'accept-language',
   'accept',
   'access-control-allow-origin',
-  'authorization',
   'cache-control',
   'connection',
   'content-length',
