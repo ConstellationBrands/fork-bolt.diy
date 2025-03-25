@@ -128,7 +128,7 @@ export default function App() {
       const user = Cookies.get('userId');
 
       if (!user) {
-        const shortUUID: string = nanoid(10)
+        const shortUUID: string = nanoid(10).toLowerCase()
         Cookies.set('userId', shortUUID);
       }
 
