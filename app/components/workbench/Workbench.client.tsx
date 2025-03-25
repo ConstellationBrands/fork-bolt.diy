@@ -402,7 +402,7 @@ export const Workbench = memo(
                             workbenchStore
                               .pushToStageRepo(projectName, commitMessage, zipFile, workbenchStore.chart)
                               .then(() => {
-                                alert(`Success uploaded to: ${projectName}-preview.cbrands.com`);
+                                alert(`Success uploaded to: ${projectName}.sdlc.app.cbrands.com`);
                               })
                               .catch(() => {
                                 alert('There was an error uploading...');
