@@ -283,6 +283,7 @@ export const Workbench = memo(
     const [isSyncing, setIsSyncing] = useState(false);
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+    const [previewLink, setPreviewLink] = useState('');
     const [fileHistory, setFileHistory] = useState<Record<string, FileHistory>>({});
 
     // const modifiedFiles = Array.from(useStore(workbenchStore.unsavedFiles).keys());
@@ -405,7 +406,8 @@ export const Workbench = memo(
                             workbenchStore
                               .pushToStageRepo(projectName, commitMessage, zipFile, workbenchStore.chart)
                               .then(() => {
-                                alert(`Success uploaded to: ${projectName}.sdlc.app.cbrands.com`);
+                                setPreviewLink(`https://${projectName}.sdlc.app.cbrands.com`)
+                                alert(`Success uploaded to: https://${projectName}.sdlc.app.cbrands.com`);
                               })
                               .catch(() => {
                                 alert('There was an error uploading...');
@@ -418,6 +420,16 @@ export const Workbench = memo(
                         <div className="i-ph:eye" />
                         Preview on DDP
                       </PanelHeaderButton>
+                      
+                      {previewLink && 
+                      <PanelHeaderButton className="mr-1 text-sm" onClick={() => {
+                        window.open(previewLink, '_blank');
+                        console.log(`LINK: ${previewLink}`)
+                      }}>
+                        <div className="link-simple" />
+                        Link
+                      </PanelHeaderButton>}
+
                       <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
                         {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
                         {isSyncing ? 'Syncing...' : 'Sync Files'}
