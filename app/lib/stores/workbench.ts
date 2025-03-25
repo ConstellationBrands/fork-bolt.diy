@@ -664,18 +664,17 @@ export class WorkbenchStore {
         encoding: 'base64',
       });
 
-      const configmapYamlData = {
-        apiVersion: 'v1',
-        kind: 'ConfigMap',
-        metadata: {
-          name: '{{ .Release.Name }}-src',
-        },
-        data: {
-          'app.zip.txt': `{{- .Files.Get "files/app.zip" | b64enc | nindent 4 }}`,
-        },
-      };
+      const configmapYamlString = `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-src
+data:
+  app.zip.txt: |
+{{ .Files.Get "files/app.zip" | b64enc | nindent 4 }}
+      `;
 
-      const configmapYamlString = yaml.dump(configmapYamlData);
+      // const configmapYamlString = yaml.dump(configmapYamlData);
 
       const configmapYamlBlob = await octokit.git.createBlob({
         owner: repo.owner.login,
