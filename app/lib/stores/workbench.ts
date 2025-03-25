@@ -457,18 +457,20 @@ export class WorkbenchStore {
 
         console.log(`FILEPATH: ${filePath} - RELATIVEPATH: ${relativePath}, DIRENT ${JSON.stringify(dirent)}`)
 
-        // if there's more than one segment, we need to create folders
-        if (pathSegments.length > 1) {
-          let currentFolder = zip;
-
-          for (let i = 0; i < pathSegments.length - 1; i++) {
-            currentFolder = currentFolder.folder(pathSegments[i])!;
-          }
-          currentFolder.file(pathSegments[pathSegments.length - 1], dirent.content);
-        } else {
-          // if there's only one segment, it's a file in the root
-          zip.file(relativePath, dirent.content);
-        }
+        if (!relativePath.startsWith("dist/")) {
+            // if there's more than one segment, we need to create folders
+            if (pathSegments.length > 1) {
+              let currentFolder = zip;
+  
+              for (let i = 0; i < pathSegments.length - 1; i++) {
+                currentFolder = currentFolder.folder(pathSegments[i])!;
+              }
+              currentFolder.file(pathSegments[pathSegments.length - 1], dirent.content);
+            } else {
+              // if there's only one segment, it's a file in the root
+              zip.file(relativePath, dirent.content);
+            }
+        } 
       }
     }
 
