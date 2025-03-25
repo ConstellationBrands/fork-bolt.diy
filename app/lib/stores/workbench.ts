@@ -124,7 +124,7 @@ export class WorkbenchStore {
         const relativePath = extractRelativePath(filePath);
 
         if (relativePath === 'vite.config.ts') {
-          return 'base'
+          return 'vite'
         }
 
         if (relativePath === 'next.config.js') {
@@ -650,7 +650,7 @@ export class WorkbenchStore {
           {
             name: chart,
             version: '0.1.0',
-            repository: `file://../../${chart}`,
+            repository: `file://../charts/${chart}`,
           },
         ],
       };
