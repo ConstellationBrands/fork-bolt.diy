@@ -281,6 +281,7 @@ export const Workbench = memo(
     renderLogger.trace('Workbench');
 
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isPreviewing, setIsPreviewing] = useState(false);
     const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
     const [fileHistory, setFileHistory] = useState<Record<string, FileHistory>>({});
 
@@ -389,7 +390,9 @@ export const Workbench = memo(
                       </PanelHeaderButton>
                       <PanelHeaderButton
                         className="mr-1 text-sm"
+                        disabled={isPreviewing}
                         onClick={() => {
+                          setIsPreviewing(true);
                           const projectName = workbenchStore.projectName;
                           const commitMessage = `Updating ${projectName}`;
 
@@ -406,6 +409,8 @@ export const Workbench = memo(
                               })
                               .catch(() => {
                                 alert('There was an error uploading...');
+                              }).finally(() => {
+                                setIsPreviewing(false);
                               });
                           });
                         }}
