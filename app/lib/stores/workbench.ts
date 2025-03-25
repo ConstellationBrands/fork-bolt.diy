@@ -108,12 +108,33 @@ export class WorkbenchStore {
   }
 
   get projectName() {
-    const project = (description.value ?? 'project').toLocaleLowerCase().split(' ').join('-');
-    return `${project}-${chatId.value}`;
+    const project = (description.value ?? 'project').toLocaleLowerCase().replace(/[_\s:]+/g, '-');
+    return `${project}-${Cookies.get('userId')}`;
   }
 
   get description() {
-    return (description.value ?? '').toLocaleLowerCase().split(' ').join('-');
+    return (description.value ?? '').toLocaleLowerCase().replace(/[_\s:]+/g, '-');
+  }
+
+  get chart() {
+    const files = this.files.get();
+
+    for (const [filePath, dirent] of Object.entries(files)) {
+      if (dirent?.type === 'file' && !dirent.isBinary) {
+        const relativePath = extractRelativePath(filePath);
+
+        if (relativePath === 'vite.config.ts') {
+          return 'base'
+        }
+
+        if (relativePath === 'next.config.js') {
+          return 'nextjs'
+        }
+
+      }
+    }
+
+    return ''
   }
 
   toggleTerminal(value?: boolean) {
@@ -420,6 +441,7 @@ export class WorkbenchStore {
     saveAs(content, `${uniqueProjectName}.zip`);
   }
 
+
   async generateProjectZipFile() {
     const zip = new JSZip();
     const files = this.files.get();
@@ -432,6 +454,8 @@ export class WorkbenchStore {
 
         // split the path into segments
         const pathSegments = relativePath.split('/');
+
+        console.log(`FILEPATH: ${filePath} - RELATIVEPATH: ${relativePath}, DIRENT ${JSON.stringify(dirent)}`)
 
         // if there's more than one segment, we need to create folders
         if (pathSegments.length > 1) {
@@ -486,7 +510,7 @@ export class WorkbenchStore {
     try {
       // Use cookies if username and token are not provided
       const githubToken = tokenStore.value
-      const owner = githubUsername || Cookies.get('githubUsername');
+      const owner = githubUsername;
 
       if (!githubToken || !owner) {
         throw new Error('GitHub token or username is not set in cookies or provided.');
@@ -591,7 +615,7 @@ export class WorkbenchStore {
     }
   }
 
-  async pushToStageRepo(projectName: string, commitMessage: string, content: string) {
+  async pushToStageRepo(projectName: string, commitMessage: string, content: string, chart: string) {
     try {
       const githubToken = tokenStore.value;
       const owner = import.meta.env.VITE_ORGANIZATION_NAME;
@@ -622,9 +646,9 @@ export class WorkbenchStore {
 
         dependencies: [
           {
-            name: 'base',
+            name: chart,
             version: '0.1.0',
-            repository: 'file://../../base',
+            repository: `file://../../${chart}`,
           },
         ],
       };
@@ -733,7 +757,7 @@ export class WorkbenchStore {
     try {
       // Use cookies if username and token are not provided
       const githubToken = ghToken || tokenStore.value;
-      const owner = githubUsername || Cookies.get('githubUsername');
+      const owner = githubUsername;
 
       console.log(`OWNER: ${owner}`);
       console.log(`TENANT: ${tenantName}`);

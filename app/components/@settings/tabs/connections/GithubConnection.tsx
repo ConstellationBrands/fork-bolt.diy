@@ -6,6 +6,7 @@ import { classNames } from '~/utils/classNames';
 import Cookies from 'js-cookie';
 import { tokenStore } from '~/lib/stores/token';
 import { connectionStore } from '~/lib/stores/connection';
+import { githubUsername } from '~/lib/stores/githubusername';
 
 interface GitHubUserResponse {
   login: string;
@@ -105,7 +106,8 @@ export default function GithubConnection() {
 
       // Cookies.set('githubToken', token);
       tokenStore.set(token);
-      Cookies.set('githubUsername', data.login);
+      //Cookies.set('githubUsername', data.login);
+      githubUsername.set(data.login);
 
       // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
 
@@ -242,8 +244,9 @@ export default function GithubConnection() {
     // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
 
     if (data) {
-      Cookies.set('githubUsername', data.login);
-    }
+      //Cookies.set('githubUsername', data.login);
+      githubUsername.set(data.login)
+     }
   }, [connection]);
 
   if (isLoading || isConnecting || isFetchingStats) {

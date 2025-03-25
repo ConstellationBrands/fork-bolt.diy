@@ -56,11 +56,6 @@ export function useGit() {
         'User-Agent': 'bolt.diy',
       };
 
-      const auth = lookupSavedPassword(url);
-
-      if (auth) {
-        headers.Authorization = `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`;
-      }
 
       try {
         await git.clone({
@@ -72,31 +67,6 @@ export function useGit() {
           singleBranch: true,
           corsProxy: '/api/git-proxy',
           headers,
-
-          onAuth: (url) => {
-            let auth = lookupSavedPassword(url);
-
-            if (auth) {
-              return auth;
-            }
-
-            if (confirm('This repo is password protected. Ready to enter a username & password?')) {
-              auth = {
-                username: prompt('Enter username'),
-                password: prompt('Enter password'),
-              };
-              return auth;
-            } else {
-              return { cancel: true };
-            }
-          },
-          onAuthFailure: (url, _auth) => {
-            toast.error(`Error Authenticating with ${url.split('/')[2]}`);
-            throw `Error Authenticating with ${url.split('/')[2]}`;
-          },
-          onAuthSuccess: (url, auth) => {
-            saveGitAuth(url, auth);
-          },
         });
 
         const data: Record<string, { data: any; encoding?: string }> = {};

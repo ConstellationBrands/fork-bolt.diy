@@ -252,7 +252,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
                       id="repoName"
                       type="text"
                       value={repoName}
-                      onChange={(e) => setRepoName(e.target.value)}
+                      onChange={(e) => setRepoName(e.target.value.toLocaleLowerCase().replace(/[_\s]+/g, '-'))}
                       placeholder="my-awesome-project"
                       className="w-full px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-[#E5E5E5] dark:border-[#1A1A1A] text-gray-900 dark:text-white placeholder-gray-400"
                       required

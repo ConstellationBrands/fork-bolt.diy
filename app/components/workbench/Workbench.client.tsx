@@ -400,7 +400,7 @@ export const Workbench = memo(
 
                           workbenchStore.generateProjectZipFile().then((zipFile) => {
                             workbenchStore
-                              .pushToStageRepo(projectName, commitMessage, zipFile)
+                              .pushToStageRepo(projectName, commitMessage, zipFile, workbenchStore.chart)
                               .then(() => {
                                 alert(`Success uploaded to: ${projectName}-preview.cbrands.com`);
                               })

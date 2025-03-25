@@ -87,6 +87,9 @@ import Cookies from 'js-cookie';
 import { toast } from 'react-toastify';
 import { tokenStore } from '~/lib/stores/token';
 import { connectionStore } from '~/lib/stores/connection';
+import { nanoid } from 'nanoid';
+import { githubUsername } from './lib/stores/githubusername';
+
 
 // import { userLoader } from '@remix-run/react';
 
@@ -105,8 +108,6 @@ export default function App() {
 
       const token = jsonData.githubToken;
 
-      console.log(`EL TOKEN ${token}`);
-
       const response = await fetch('https://api.github.com/user', {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -124,11 +125,19 @@ export default function App() {
         tokenType: connection.tokenType,
       };
 
+      const user = Cookies.get('userId');
+
+      if (!user) {
+        const shortUUID: string = nanoid(10)
+        Cookies.set('userId', shortUUID);
+      }
+
       // localStorage.setItem('github_connection', JSON.stringify(newConnection));
       connectionStore.set(newConnection);
       // Cookies.set('githubToken', token);
       tokenStore.set(token);
-      Cookies.set('githubUsername', data.login);
+      githubUsername.set(data.login);
+      //Cookies.set('githubUsername', data.login);
       // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
 
       setConnection(newConnection);
