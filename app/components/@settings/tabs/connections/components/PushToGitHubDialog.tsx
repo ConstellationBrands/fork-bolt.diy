@@ -34,7 +34,6 @@ interface GitHubRepo {
 
 export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDialogProps) {
   const [repoName, setRepoName] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<GitHubUserResponse | null>(null);
   const [recentRepos, setRecentRepos] = useState<GitHubRepo[]>([]);
@@ -159,7 +158,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
         }
       }
 
-      const repoUrl = await onPush(repoName, connection.user.login, connection.token, isPrivate);
+      const repoUrl = await onPush(repoName, connection.user.login, connection.token, true);
       setCreatedRepoUrl(repoUrl);
 
       // Get list of pushed files
@@ -183,7 +182,6 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
 
   const handleClose = () => {
     setRepoName('');
-    setIsPrivate(false);
     setShowSuccessDialog(false);
     setCreatedRepoUrl('');
     onClose();
@@ -385,14 +383,6 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                   </Dialog.Close>
                 </div>
 
-                <div className="flex items-center gap-3 mb-6 p-3 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg">
-                  <img src={user.avatar_url} alt={user.login} className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name || user.login}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">@{user.login}</p>
-                  </div>
-                </div>
-
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <label htmlFor="repoName" className="text-sm text-gray-600 dark:text-gray-400">
@@ -472,19 +462,6 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       Loading repositories...
                     </div>
                   )}
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="private"
-                      checked={isPrivate}
-                      onChange={(e) => setIsPrivate(e.target.checked)}
-                      className="rounded border-[#E5E5E5] dark:border-[#1A1A1A] text-purple-500 focus:ring-purple-500 dark:bg-[#0A0A0A]"
-                    />
-                    <label htmlFor="private" className="text-sm text-gray-600 dark:text-gray-400">
-                      Make repository private
-                    </label>
-                  </div>
 
                   <div className="pt-4 flex gap-2">
                     <motion.button
