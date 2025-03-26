@@ -108,7 +108,7 @@ export class WorkbenchStore {
   }
 
   get projectName() {
-    const project = (description.value ?? 'project').toLocaleLowerCase().replace(/[_\s:]+/g, '-');
+    const project = (description.value ?? 'project').toLocaleLowerCase().replace(/[_\s:]+/g, '-').substring(0, 40);
     return `${project}-${Cookies.get('userId')}`;
   }
 
