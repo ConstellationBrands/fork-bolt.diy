@@ -8,10 +8,10 @@
 name: Create and publish a Docker image
 on:
   push:
-    branches: [ cbi-main ]
+    branches: [ feature_preview ]
   workflow_dispatch:
 env:
-  APP_NAME: fork-bolt-diy
+  APP_NAME: bolt-ai
   REGISTRY: ghcr.io/constellationbrands
 jobs:
   build-and-push:
@@ -48,4 +48,6 @@ jobs:
         with:
           push: true
           target: bolt-ai-production
+          build-args: |
+            VITE_ORGANIZATION_NAME: "ConstellationBrands"
           tags: ${{ env.REGISTRY }}/${{ env.APP_NAME }}:${{ steps.version_tag.outputs.version_tag }}
