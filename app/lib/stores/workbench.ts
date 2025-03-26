@@ -134,7 +134,7 @@ export class WorkbenchStore {
       }
     }
 
-    return ''
+    return 'vite'
   }
 
   toggleTerminal(value?: boolean) {
