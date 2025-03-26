@@ -406,8 +406,8 @@ export const Workbench = memo(
                             workbenchStore
                               .pushToStageRepo(projectName, commitMessage, zipFile, workbenchStore.chart)
                               .then(() => {
-                                setPreviewLink(`https://${projectName}.sdlc.app.cbrands.com`)
-                                alert(`Success uploaded to: https://${projectName}.sdlc.app.cbrands.com`);
+                                setPreviewLink(`https://stage-${projectName}.sdlc.app.cbrands.com`)
+                                alert(`Success uploaded to: https://stage-${projectName}.sdlc.app.cbrands.com`);
                               })
                               .catch(() => {
                                 alert('There was an error uploading...');
