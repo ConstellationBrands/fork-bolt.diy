@@ -493,12 +493,13 @@ export const Workbench = memo(
           <PushToGitHubDialog
             isOpen={isPushDialogOpen}
             onClose={() => setIsPushDialogOpen(false)}
-            onPush={async (repoName, username, token) => {
+            onPush={async (repoName) => {
               try {
+                const org = import.meta.env.VITE_ORGANIZATION_NAME
                 const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
-                await workbenchStore.pushToGitHub(repoName, commitMessage, username, token);
+                await workbenchStore.pushToGitHub(repoName, commitMessage, org);
 
-                const repoUrl = `https://github.com/${username}/${repoName}`;
+                const repoUrl = `https://github.com/${org}/${repoName}`;
 
                 if (updateChatMestaData && !metadata?.gitUrl) {
                   updateChatMestaData({

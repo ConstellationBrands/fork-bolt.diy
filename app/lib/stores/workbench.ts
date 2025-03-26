@@ -508,7 +508,7 @@ export class WorkbenchStore {
     return syncedFiles;
   }
 
-  async pushToGitHub(repoName: string, commitMessage?: string, githubUsername?: string, ghToken?: string) {
+  async pushToGitHub(repoName: string, commitMessage?: string, githubUsername?: string) {
     try {
       // Use cookies if username and token are not provided
       const githubToken = tokenStore.value
@@ -523,6 +523,7 @@ export class WorkbenchStore {
 
       // Check if the repository already exists before creating it
       let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+      console.log(`OWNER: ${owner}`)
 
       try {
         const resp = await octokit.repos.get({ owner, repo: repoName });
@@ -530,9 +531,10 @@ export class WorkbenchStore {
       } catch (error) {
         if (error instanceof Error && 'status' in error && error.status === 404) {
           // Repository doesn't exist, so create a new one
-          const { data: newRepo } = await octokit.repos.createForAuthenticatedUser({
+          const { data: newRepo } = await octokit.repos.createInOrg({
+            org: owner,
             name: repoName,
-            private: false,
+            private: true,
             auto_init: true,
           });
           repo = newRepo;
