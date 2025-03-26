@@ -11,7 +11,7 @@ on:
     branches: [ feature_preview ]
   workflow_dispatch:
 env:
-  APP_NAME: bolt-ai
+  APP_NAME: fork-bolt-diy
   REGISTRY: ghcr.io/constellationbrands
 jobs:
   build-and-push:
