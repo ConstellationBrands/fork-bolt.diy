@@ -61,7 +61,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
     try {
       // Check if repository exists first
       // await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
-      const org = import.meta.env.VITE_ORGANIZATION_NAME;
+      const org = "ConstellationBrands"
       await onPush(repoName, branchName, tenantName, environmentName, org, connection.token);
       setShowSuccessDialog(true);
     } catch (error) {

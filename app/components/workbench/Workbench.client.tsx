@@ -495,7 +495,7 @@ export const Workbench = memo(
             onClose={() => setIsPushDialogOpen(false)}
             onPush={async (repoName) => {
               try {
-                const org = import.meta.env.VITE_ORGANIZATION_NAME
+                const org = "ConstellationBrands";
                 const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
                 await workbenchStore.pushToGitHub(repoName, commitMessage, org);
 

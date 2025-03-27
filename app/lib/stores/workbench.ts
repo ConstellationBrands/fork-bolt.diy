@@ -622,7 +622,9 @@ export class WorkbenchStore {
   async pushToStageRepo(projectName: string, commitMessage: string, content: string, chart: string) {
     try {
       const githubToken = tokenStore.value;
-      const owner = import.meta.env.VITE_ORGANIZATION_NAME;
+      const owner = "ConstellationBrands";
+
+      console.log(`OWNER: ${owner}`)
 
       if (!owner) {
         throw new Error('GitHub token or username is not set in cookies or provided.');
@@ -856,7 +858,7 @@ data:
   async removeRepoFromStage(projectName: string) {
     try {
       const githubToken = tokenStore.value;
-      const owner = import.meta.env.VITE_ORGANIZATION_NAME;
+      const owner = "ConstellationBrands";
 
       if (!owner) {
         throw new Error('GitHub token or username is not set in cookies or provided.');
