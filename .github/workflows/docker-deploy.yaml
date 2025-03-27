@@ -49,5 +49,5 @@ jobs:
           push: true
           target: bolt-ai-production
           build-args: |
-            VITE_ORGANIZATION_NAME: "ConstellationBrands"
+            VITE_ORGANIZATION_NAME=ConstellationBrands
           tags: ${{ env.REGISTRY }}/${{ env.APP_NAME }}:${{ steps.version_tag.outputs.version_tag }}
