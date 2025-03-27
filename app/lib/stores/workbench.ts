@@ -602,6 +602,10 @@ export class WorkbenchStore {
         message: commitMessage || 'Initial commit from your app',
         tree: newTree.sha,
         parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'noreply@argoproj.io'
+        }
       });
 
       // Update the reference
@@ -734,6 +738,10 @@ data:
         message: commitMessage,
         tree: newTree.sha,
         parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'noreply@argoproj.io'
+        }
       });
 
       // Update the reference
@@ -840,6 +848,10 @@ data:
         message: `Added ${repoName} for variant ${branchName}`,
         tree: newTree.sha,
         parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'noreply@argoproj.io'
+        }
       });
 
       // Update the reference
@@ -915,6 +927,10 @@ data:
         message: `removed ${projectName}`,
         tree: newTree.sha,
         parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'noreply@argoproj.io'
+        }
       });
 
       // Update the reference
