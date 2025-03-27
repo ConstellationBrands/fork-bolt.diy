@@ -16,7 +16,7 @@ import { connectionStore } from "~/lib/stores/connection";
 interface PushToGitHubDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onPush: (repoName: string) => Promise<string>;
+  onPush: (repoName: string, otherUsername: string) => Promise<string>;
 }
 
 interface GitHubRepo {
@@ -97,7 +97,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
         }
       }
 
-      const repoUrl = await onPush(repoName);
+      const repoUrl = await onPush(repoName, githubUsername);
       setCreatedRepoUrl(repoUrl);
 
       // Get list of pushed files
@@ -346,7 +346,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       id="githubUsername"
                       type="text"
                       value={githubUsername}
-                      onChange={(e) => setRepoName(e.target.value.toLocaleLowerCase().replace(/[_\s:]+/g, '-'))}
+                      onChange={(e) => setGithubUsername(e.target.value)}
                       className="w-full px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-[#E5E5E5] dark:border-[#1A1A1A] text-gray-900 dark:text-white placeholder-gray-400"
                       required
                     />

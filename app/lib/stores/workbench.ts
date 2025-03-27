@@ -508,7 +508,7 @@ export class WorkbenchStore {
     return syncedFiles;
   }
 
-  async pushToGitHub(repoName: string, commitMessage?: string, githubUsername?: string) {
+  async pushToGitHub(repoName: string, otherUsername: string, commitMessage?: string, githubUsername?: string) {
     try {
       // Use cookies if username and token are not provided
       const githubToken = tokenStore.value
@@ -538,6 +538,13 @@ export class WorkbenchStore {
             auto_init: true,
           });
           repo = newRepo;
+
+          await octokit.repos.addCollaborator({
+            owner: repo.owner.login,
+            repo: repo.name,
+            username: otherUsername,
+            permission: 'admin', // Set permission to admin
+          });
         } else {
           console.log('cannot create repo!');
           throw error; // Some other error occurred

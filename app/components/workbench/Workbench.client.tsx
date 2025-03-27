@@ -25,6 +25,7 @@ import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
 import { description } from '~/lib/persistence';
+import { githubUsername } from '~/lib/stores/githubusername';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -493,11 +494,11 @@ export const Workbench = memo(
           <PushToGitHubDialog
             isOpen={isPushDialogOpen}
             onClose={() => setIsPushDialogOpen(false)}
-            onPush={async (repoName) => {
+            onPush={async (repoName, otherUsername) => {
               try {
                 const org = "ConstellationBrands";
                 const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
-                await workbenchStore.pushToGitHub(repoName, commitMessage, org);
+                await workbenchStore.pushToGitHub(repoName, otherUsername, commitMessage, org);
 
                 const repoUrl = `https://github.com/${org}/${repoName}`;
 
