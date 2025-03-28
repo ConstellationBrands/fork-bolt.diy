@@ -115,7 +115,7 @@ export class WorkbenchStore {
     const project = (description.value ?? 'project')
       .toLocaleLowerCase()
       .replace(/[_\s:]+/g, '-')
-      .substring(0, 40);
+      .substring(0, 30);
     return `${project}-${Cookies.get('userId')}`;
   }
 
@@ -568,11 +568,11 @@ export class WorkbenchStore {
             content: Buffer.from(readmeContent).toString('base64'), // Encode content to base64
             author: {
               name: 'bot-ddp',
-              email: 'botl@cbrands.com',
+              email: 'bolt@cbrands.com',
             },
             committer: {
               name: 'bot-ddp',
-              email: 'botl@cbrands.com',
+              email: 'bolt@cbrands.com',
             },
           });
         } else {
@@ -646,7 +646,7 @@ export class WorkbenchStore {
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'botl@cbrands.com',
+          email: 'bolt@cbrands.com',
         },
       });
 
@@ -782,7 +782,7 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'botl@cbrands.com',
+          email: 'bolt@cbrands.com',
         },
       });
 
@@ -892,7 +892,7 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'botl@cbrands.com',
+          email: 'bolt@cbrands.com',
         },
       });
 
@@ -969,7 +969,7 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'botl@cbrands.com',
+          email: 'bolt@cbrands.com',
         },
       });
 
