@@ -20,7 +20,7 @@ import { createSampler } from '~/utils/sampler';
 import type { ActionAlert } from '~/types/actions';
 import { Buffer } from 'node:buffer';
 import * as yaml from 'js-yaml';
-import { tokenStore } from "~/lib/stores/token";
+import { tokenStore } from '~/lib/stores/token';
 
 const { saveAs } = fileSaver;
 
@@ -56,6 +56,7 @@ export class WorkbenchStore {
   modifiedFiles = new Set<string>();
   artifactIdList: string[] = [];
   #globalExecutionQueue = Promise.resolve();
+
   constructor() {
     if (import.meta.hot) {
       import.meta.hot.data.artifacts = this.artifacts;
@@ -97,18 +98,24 @@ export class WorkbenchStore {
   get showTerminal() {
     return this.#terminalStore.showTerminal;
   }
+
   get boltTerminal() {
     return this.#terminalStore.boltTerminal;
   }
+
   get alert() {
     return this.actionAlert;
   }
+
   clearAlert() {
     this.actionAlert.set(undefined);
   }
 
   get projectName() {
-    const project = (description.value ?? 'project').toLocaleLowerCase().replace(/[_\s:]+/g, '-').substring(0, 40);
+    const project = (description.value ?? 'project')
+      .toLocaleLowerCase()
+      .replace(/[_\s:]+/g, '-')
+      .substring(0, 40);
     return `${project}-${Cookies.get('userId')}`;
   }
 
@@ -124,17 +131,16 @@ export class WorkbenchStore {
         const relativePath = extractRelativePath(filePath);
 
         if (relativePath === 'vite.config.ts') {
-          return 'vite'
+          return 'vite';
         }
 
         if (relativePath === 'next.config.js') {
-          return 'nextjs'
+          return 'nextjs';
         }
-
       }
     }
 
-    return 'vite'
+    return 'vite';
   }
 
   toggleTerminal(value?: boolean) {
@@ -144,6 +150,7 @@ export class WorkbenchStore {
   attachTerminal(terminal: ITerminal) {
     this.#terminalStore.attachTerminal(terminal);
   }
+
   attachBoltTerminal(terminal: ITerminal) {
     this.#terminalStore.attachBoltTerminal(terminal);
   }
@@ -271,6 +278,7 @@ export class WorkbenchStore {
   getFileModifcations() {
     return this.#filesStore.getFileModifications();
   }
+
   getModifiedFiles() {
     return this.#filesStore.getModifiedFiles();
   }
@@ -326,11 +334,13 @@ export class WorkbenchStore {
 
     this.artifacts.setKey(messageId, { ...artifact, ...state });
   }
+
   addAction(data: ActionCallbackData) {
     // this._addAction(data);
 
     this.addToExecutionQueue(() => this._addAction(data));
   }
+
   async _addAction(data: ActionCallbackData) {
     const { messageId } = data;
 
@@ -350,6 +360,7 @@ export class WorkbenchStore {
       this.addToExecutionQueue(() => this._runAction(data, isStreaming));
     }
   }
+
   async _runAction(data: ActionCallbackData, isStreaming: boolean = false) {
     const { messageId } = data;
 
@@ -441,7 +452,6 @@ export class WorkbenchStore {
     saveAs(content, `${uniqueProjectName}.zip`);
   }
 
-
   async generateProjectZipFile() {
     const zip = new JSZip();
     const files = this.files.get();
@@ -455,22 +465,22 @@ export class WorkbenchStore {
         // split the path into segments
         const pathSegments = relativePath.split('/');
 
-        console.log(`FILEPATH: ${filePath} - RELATIVEPATH: ${relativePath}, DIRENT ${JSON.stringify(dirent)}`)
+        console.log(`FILEPATH: ${filePath} - RELATIVEPATH: ${relativePath}, DIRENT ${JSON.stringify(dirent)}`);
 
-        if (!relativePath.startsWith("dist/")) {
-            // if there's more than one segment, we need to create folders
-            if (pathSegments.length > 1) {
-              let currentFolder = zip;
-  
-              for (let i = 0; i < pathSegments.length - 1; i++) {
-                currentFolder = currentFolder.folder(pathSegments[i])!;
-              }
-              currentFolder.file(pathSegments[pathSegments.length - 1], dirent.content);
-            } else {
-              // if there's only one segment, it's a file in the root
-              zip.file(relativePath, dirent.content);
+        if (!relativePath.startsWith('dist/')) {
+          // if there's more than one segment, we need to create folders
+          if (pathSegments.length > 1) {
+            let currentFolder = zip;
+
+            for (let i = 0; i < pathSegments.length - 1; i++) {
+              currentFolder = currentFolder.folder(pathSegments[i])!;
             }
-        } 
+            currentFolder.file(pathSegments[pathSegments.length - 1], dirent.content);
+          } else {
+            // if there's only one segment, it's a file in the root
+            zip.file(relativePath, dirent.content);
+          }
+        }
       }
     }
 
@@ -511,7 +521,7 @@ export class WorkbenchStore {
   async pushToGitHub(repoName: string, otherUsername: string, commitMessage?: string, githubUsername?: string) {
     try {
       // Use cookies if username and token are not provided
-      const githubToken = tokenStore.value
+      const githubToken = tokenStore.value;
       const owner = githubUsername;
 
       if (!githubToken || !owner) {
@@ -522,12 +532,14 @@ export class WorkbenchStore {
       const octokit = new Octokit({ auth: githubToken });
 
       // Check if the repository already exists before creating it
+      let repoExists = false;
       let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
-      console.log(`OWNER: ${owner}`)
+      console.log(`OWNER: ${owner}`);
 
       try {
         const resp = await octokit.repos.get({ owner, repo: repoName });
         repo = resp.data;
+        repoExists = true;
       } catch (error) {
         if (error instanceof Error && 'status' in error && error.status === 404) {
           // Repository doesn't exist, so create a new one
@@ -535,7 +547,7 @@ export class WorkbenchStore {
             org: owner,
             name: repoName,
             private: true,
-            auto_init: true,
+            auto_init: false,
           });
           repo = newRepo;
 
@@ -545,10 +557,33 @@ export class WorkbenchStore {
             username: otherUsername,
             permission: 'admin', // Set permission to admin
           });
+
+          const readmeContent = '# ' + repoName + '\n\nThis is a README file for the ' + repoName + ' repository.';
+
+          await octokit.rest.repos.createOrUpdateFileContents({
+            owner: repo.owner.login,
+            repo: repoName,
+            path: 'README.md',
+            message: 'Add README file',
+            content: Buffer.from(readmeContent).toString('base64'), // Encode content to base64
+            author: {
+              name: 'bot-ddp',
+              email: 'noreply@argoproj.io',
+            },
+            committer: {
+              name: 'bot-ddp',
+              email: 'noreply@argoproj.io',
+            },
+          });
         } else {
           console.log('cannot create repo!');
           throw error; // Some other error occurred
         }
+      }
+
+      if (repoExists) {
+        alert(`Repository already exists: ${repo.html_url}`);
+        throw new Error('Repository already exists!');
       }
 
       // Get all files
@@ -611,8 +646,8 @@ export class WorkbenchStore {
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io'
-        }
+          email: 'noreply@argoproj.io',
+        },
       });
 
       // Update the reference
@@ -633,9 +668,9 @@ export class WorkbenchStore {
   async pushToStageRepo(projectName: string, commitMessage: string, content: string, chart: string) {
     try {
       const githubToken = tokenStore.value;
-      const owner = "ConstellationBrands";
+      const owner = 'ConstellationBrands';
 
-      console.log(`OWNER: ${owner}`)
+      console.log(`OWNER: ${owner}`);
 
       if (!owner) {
         throw new Error('GitHub token or username is not set in cookies or provided.');
@@ -747,8 +782,8 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io'
-        }
+          email: 'noreply@argoproj.io',
+        },
       });
 
       // Update the reference
@@ -857,8 +892,8 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io'
-        }
+          email: 'noreply@argoproj.io',
+        },
       });
 
       // Update the reference
@@ -877,7 +912,7 @@ data:
   async removeRepoFromStage(projectName: string) {
     try {
       const githubToken = tokenStore.value;
-      const owner = "ConstellationBrands";
+      const owner = 'ConstellationBrands';
 
       if (!owner) {
         throw new Error('GitHub token or username is not set in cookies or provided.');
@@ -896,9 +931,7 @@ data:
         throw error;
       }
 
-      const blobs = [
-        { path: `${projectName}`, sha: null },
-      ];
+      const blobs = [{ path: `${projectName}`, sha: null }];
 
       const validBlobs = blobs.filter(Boolean);
 
@@ -936,8 +969,8 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io'
-        }
+          email: 'noreply@argoproj.io',
+        },
       });
 
       // Update the reference
@@ -947,13 +980,11 @@ data:
         ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
         sha: newCommit.sha,
       });
-
     } catch (error) {
       console.error('Error deleting preview environment', error);
       throw error;
     }
   }
-
 }
 
 export const workbenchStore = new WorkbenchStore();

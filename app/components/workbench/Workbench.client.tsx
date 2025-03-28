@@ -421,8 +421,8 @@ export const Workbench = memo(
                         <div className="i-ph:eye" />
                         Preview on DDP
                       </PanelHeaderButton>
-                      
-                      {previewLink && 
+
+                      {previewLink &&
                       <PanelHeaderButton className="mr-1 text-sm" onClick={() => {
                         window.open(previewLink, '_blank');
                         console.log(`LINK: ${previewLink}`)
