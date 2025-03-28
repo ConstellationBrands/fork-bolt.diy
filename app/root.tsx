@@ -88,6 +88,8 @@ import { toast } from 'react-toastify';
 import { tokenStore } from '~/lib/stores/token';
 import { connectionStore } from '~/lib/stores/connection';
 import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid'
+import { alphanumeric } from 'nanoid-dictionary';
 import { githubUsername } from './lib/stores/githubusername';
 
 
@@ -128,7 +130,8 @@ export default function App() {
       const user = Cookies.get('userId');
 
       if (!user) {
-        const shortUUID: string = nanoid(10).toLowerCase()
+        const nanoid = customAlphabet(alphanumeric, 10)
+        const shortUUID: string = nanoid().toLowerCase()
         Cookies.set('userId', shortUUID);
       }
 
