@@ -568,11 +568,11 @@ export class WorkbenchStore {
             content: Buffer.from(readmeContent).toString('base64'), // Encode content to base64
             author: {
               name: 'bot-ddp',
-              email: 'noreply@argoproj.io',
+              email: 'botl@cbrands.com',
             },
             committer: {
               name: 'bot-ddp',
-              email: 'noreply@argoproj.io',
+              email: 'botl@cbrands.com',
             },
           });
         } else {
@@ -646,7 +646,7 @@ export class WorkbenchStore {
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io',
+          email: 'botl@cbrands.com',
         },
       });
 
@@ -782,7 +782,7 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io',
+          email: 'botl@cbrands.com',
         },
       });
 
@@ -892,7 +892,7 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io',
+          email: 'botl@cbrands.com',
         },
       });
 
@@ -969,7 +969,7 @@ data:
         parents: [latestCommitSha],
         author: {
           name: 'bolt-ddp',
-          email: 'noreply@argoproj.io',
+          email: 'botl@cbrands.com',
         },
       });
 
