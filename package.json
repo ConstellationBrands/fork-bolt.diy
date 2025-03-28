@@ -106,6 +106,7 @@
     "jspdf": "^2.5.2",
     "jszip": "^3.10.1",
     "nanoid": "^5.1.5",
+    "nanoid-dictionary": "^4.3.0",
     "nanostores": "^0.10.3",
     "ollama-ai-provider": "^0.15.2",
     "path-browserify": "^1.0.1",
