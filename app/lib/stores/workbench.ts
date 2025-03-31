@@ -914,6 +914,8 @@ data:
       const githubToken = tokenStore.value;
       const owner = 'ConstellationBrands';
 
+      console.log('IN RemoveRepoFromStage')
+
       if (!owner) {
         throw new Error('GitHub token or username is not set in cookies or provided.');
       }

@@ -92,6 +92,7 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
                 ): Promise<string | undefined> {
                   try {
                     await workbenchStore.deployToDDP(repoName, branchName, tenantName, environmentName, org, token);
+                    console.log("Success on DeployToDDP");
                     return `https://github.com/${org}/${repoName}`;
                   } catch (error) {
                     if (retries > 0) {
@@ -108,8 +109,11 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
                   }
                 }
 
+                console.log('Before retryRemoveRepo');
+
                 async function retryRemoveRepo(retries: number = 10, delay: number = 10000): Promise<void> {
                   try {
+                    console.log('Inside retryRemoveRepo');
                     await workbenchStore.removeRepoFromStage(workbenchStore.projectName);
                     toast.success('Successfully deleted preview environment');
                     setShowSuccessDialog(true);
