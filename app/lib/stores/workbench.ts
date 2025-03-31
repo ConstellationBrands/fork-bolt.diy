@@ -114,13 +114,13 @@ export class WorkbenchStore {
   get projectName() {
     const project = (description.value ?? 'project')
       .toLocaleLowerCase()
-      .replace(/[_\s:]+/g, '-')
+      .replace(/[^a-zA-Z0-9]+/g, '-')
       .substring(0, 30);
     return `${project}-${Cookies.get('userId')}`;
   }
 
   get description() {
-    return (description.value ?? '').toLocaleLowerCase().replace(/[_\s:]+/g, '-');
+    return (description.value ?? '').toLocaleLowerCase().replace(/[^a-zA-Z0-9]+/g, '-');
   }
 
   get chart() {

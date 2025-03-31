@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { getLocalStorage } from '~/lib/persistence';
 import { classNames } from '~/utils/classNames';
 import type { GitHubUserResponse } from '~/types/GitHub';
-import { connectionStore } from "~/lib/stores/connection";
+import { connectionStore } from '~/lib/stores/connection';
 
 interface DeployToDDPDialogProps {
   isOpen: boolean;
@@ -17,6 +17,8 @@ interface DeployToDDPDialogProps {
     environmentName: string,
     org?: string,
     token?: string,
+    setShowSuccessDialog?: (showSuccessDialog: boolean) => void,
+    setIsLoading?: (isLoading: boolean) => void,
   ) => Promise<string>;
 }
 
@@ -59,16 +61,30 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
     setIsLoading(true);
 
     try {
-      // Check if repository exists first
-      // await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
-      const org = "ConstellationBrands"
-      await onPush(repoName, branchName, tenantName, environmentName, org, connection.token);
-      setShowSuccessDialog(true);
+      /*
+       * Check if repository exists first
+       * await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
+       */
+      const org = 'ConstellationBrands';
+      await onPush(
+        repoName,
+        branchName,
+        tenantName,
+        environmentName,
+        org,
+        connection.token,
+        setShowSuccessDialog,
+        setIsLoading,
+      );
+
+      // setShowSuccessDialog(true);
     } catch (error) {
       console.error('Error pushing to GitHub:', error);
       toast.error('Failed to push to GitHub. Please check your repository name and try again.');
     } finally {
-      setIsLoading(false);
+      console.log('HERE');
+
+      // setIsLoading(false);
     }
   };
 

@@ -395,7 +395,8 @@ export const Workbench = memo(
                         disabled={isPreviewing}
                         onClick={() => {
                           setIsPreviewing(true);
-                          const projectName = workbenchStore.projectName;
+
+                          const { projectName } = workbenchStore;
                           const commitMessage = `Updating ${projectName}`;
 
                           if (!workbenchStore.description) {
@@ -404,17 +405,36 @@ export const Workbench = memo(
                           }
 
                           workbenchStore.generateProjectZipFile().then((zipFile) => {
-                            workbenchStore
-                              .pushToStageRepo(projectName, commitMessage, zipFile, workbenchStore.chart)
-                              .then(() => {
-                                setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`)
+                            async function retryPushToStageRepo(
+                              retries: number = 10,
+                              delay: number = 10000,
+                            ): Promise<void> {
+                              try {
+                                setIsPreviewing(true);
+                                await workbenchStore.pushToStageRepo(
+                                  projectName,
+                                  commitMessage,
+                                  zipFile,
+                                  workbenchStore.chart,
+                                );
+                                setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
                                 alert(`Success uploaded to: https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
-                              })
-                              .catch(() => {
-                                alert('There was an error uploading...');
-                              }).finally(() => {
                                 setIsPreviewing(false);
-                              });
+                              } catch (error) {
+                                if (retries > 0) {
+                                  console.error(`Error uploading, retrying in ${delay}ms...`, error);
+                                  setTimeout(() => {
+                                    retryPushToStageRepo(retries - 1, delay);
+                                  }, delay);
+                                } else {
+                                  alert('There was an error uploading...');
+                                  console.error('Failed to upload after multiple retries:', error);
+                                  setIsPreviewing(false);
+                                }
+                              }
+                            }
+
+                            retryPushToStageRepo();
                           });
                         }}
                       >
@@ -422,14 +442,18 @@ export const Workbench = memo(
                         Preview on DDP
                       </PanelHeaderButton>
 
-                      {previewLink &&
-                      <PanelHeaderButton className="mr-1 text-sm" onClick={() => {
-                        window.open(previewLink, '_blank');
-                        console.log(`LINK: ${previewLink}`)
-                      }}>
-                        <div className="link-simple" />
-                        Link
-                      </PanelHeaderButton>}
+                      {previewLink && (
+                        <PanelHeaderButton
+                          className="mr-1 text-sm"
+                          onClick={() => {
+                            window.open(previewLink, '_blank');
+                            console.log(`LINK: ${previewLink}`);
+                          }}
+                        >
+                          <div className="link-simple" />
+                          Link
+                        </PanelHeaderButton>
+                      )}
 
                       <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
                         {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
@@ -496,7 +520,7 @@ export const Workbench = memo(
             onClose={() => setIsPushDialogOpen(false)}
             onPush={async (repoName, otherUsername) => {
               try {
-                const org = "ConstellationBrands";
+                const org = 'ConstellationBrands';
                 const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
                 await workbenchStore.pushToGitHub(repoName, otherUsername, commitMessage, org);
 
