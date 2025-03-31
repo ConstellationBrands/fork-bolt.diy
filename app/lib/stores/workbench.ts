@@ -567,11 +567,11 @@ export class WorkbenchStore {
             message: 'Add README file',
             content: Buffer.from(readmeContent).toString('base64'), // Encode content to base64
             author: {
-              name: 'bot-ddp',
+              name: 'bolt-ddp',
               email: 'bolt@cbrands.com',
             },
             committer: {
-              name: 'bot-ddp',
+              name: 'bolt-ddp',
               email: 'bolt@cbrands.com',
             },
           });
