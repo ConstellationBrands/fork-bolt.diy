@@ -1,32 +1,8 @@
 import type { WebContainer } from '@webcontainer/api';
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { webcontainer as webcontainerPromise } from '~/lib/webcontainer';
-import git, { type GitAuth, type PromiseFsClient } from 'isomorphic-git';
+import git, { type PromiseFsClient } from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
-import Cookies from 'js-cookie';
-import { toast } from 'react-toastify';
-
-const lookupSavedPassword = (url: string) => {
-  const domain = url.split('/')[2];
-  const gitCreds = Cookies.get(`git:${domain}`);
-
-  if (!gitCreds) {
-    return null;
-  }
-
-  try {
-    const { username, password } = JSON.parse(gitCreds || '{}');
-    return { username, password };
-  } catch (error) {
-    console.log(`Failed to parse Git Cookie ${error}`);
-    return null;
-  }
-};
-
-const saveGitAuth = (url: string, auth: GitAuth) => {
-  const domain = url.split('/')[2];
-  Cookies.set(`git:${domain}`, JSON.stringify(auth));
-};
 
 export function useGit() {
   const [ready, setReady] = useState(false);
@@ -50,17 +26,16 @@ export function useGit() {
 
       fileData.current = {};
 
+      /*
+       * Skip Git initialization for now - let isomorphic-git handle it
+       * This avoids potential issues with our manual initialization
+       */
+
       const headers: {
         [x: string]: string;
       } = {
         'User-Agent': 'bolt.diy',
       };
-
-      const auth = lookupSavedPassword(url);
-
-      if (auth) {
-        headers.Authorization = `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString('base64')}`;
-      }
 
       try {
         await git.clone({
@@ -72,31 +47,6 @@ export function useGit() {
           singleBranch: true,
           corsProxy: '/api/git-proxy',
           headers,
-
-          onAuth: (url) => {
-            let auth = lookupSavedPassword(url);
-
-            if (auth) {
-              return auth;
-            }
-
-            if (confirm('This repo is password protected. Ready to enter a username & password?')) {
-              auth = {
-                username: prompt('Enter username'),
-                password: prompt('Enter password'),
-              };
-              return auth;
-            } else {
-              return { cancel: true };
-            }
-          },
-          onAuthFailure: (url, _auth) => {
-            toast.error(`Error Authenticating with ${url.split('/')[2]}`);
-            throw `Error Authenticating with ${url.split('/')[2]}`;
-          },
-          onAuthSuccess: (url, auth) => {
-            saveGitAuth(url, auth);
-          },
         });
 
         const data: Record<string, { data: any; encoding?: string }> = {};
@@ -136,18 +86,26 @@ const getFs = (
         throw error;
       }
     },
-    writeFile: async (path: string, data: any, options: any) => {
-      const encoding = options.encoding;
+    writeFile: async (path: string, data: any, options: any = {}) => {
       const relativePath = pathUtils.relative(webcontainer.workdir, path);
 
       if (record.current) {
-        record.current[relativePath] = { data, encoding };
+        record.current[relativePath] = { data, encoding: options?.encoding };
       }
 
       try {
-        const result = await webcontainer.fs.writeFile(relativePath, data, { ...options, encoding });
+        // Handle encoding properly based on data type
+        if (data instanceof Uint8Array) {
+          // For binary data, don't pass encoding
+          const result = await webcontainer.fs.writeFile(relativePath, data);
+          return result;
+        } else {
+          // For text data, use the encoding if provided
+          const encoding = options?.encoding || 'utf8';
+          const result = await webcontainer.fs.writeFile(relativePath, data, encoding);
 
-        return result;
+          return result;
+        }
       } catch (error) {
         throw error;
       }
@@ -208,33 +166,80 @@ const getFs = (
     stat: async (path: string) => {
       try {
         const relativePath = pathUtils.relative(webcontainer.workdir, path);
-        const resp = await webcontainer.fs.readdir(pathUtils.dirname(relativePath), { withFileTypes: true });
-        const name = pathUtils.basename(relativePath);
-        const fileInfo = resp.find((x) => x.name == name);
+        const dirPath = pathUtils.dirname(relativePath);
+        const fileName = pathUtils.basename(relativePath);
+
+        // Special handling for .git/index file
+        if (relativePath === '.git/index') {
+          return {
+            isFile: () => true,
+            isDirectory: () => false,
+            isSymbolicLink: () => false,
+            size: 12, // Size of our empty index
+            mode: 0o100644, // Regular file
+            mtimeMs: Date.now(),
+            ctimeMs: Date.now(),
+            birthtimeMs: Date.now(),
+            atimeMs: Date.now(),
+            uid: 1000,
+            gid: 1000,
+            dev: 1,
+            ino: 1,
+            nlink: 1,
+            rdev: 0,
+            blksize: 4096,
+            blocks: 1,
+            mtime: new Date(),
+            ctime: new Date(),
+            birthtime: new Date(),
+            atime: new Date(),
+          };
+        }
+
+        const resp = await webcontainer.fs.readdir(dirPath, { withFileTypes: true });
+        const fileInfo = resp.find((x) => x.name === fileName);
 
         if (!fileInfo) {
-          throw new Error(`ENOENT: no such file or directory, stat '${path}'`);
+          const err = new Error(`ENOENT: no such file or directory, stat '${path}'`) as NodeJS.ErrnoException;
+          err.code = 'ENOENT';
+          err.errno = -2;
+          err.syscall = 'stat';
+          err.path = path;
+          throw err;
         }
 
         return {
           isFile: () => fileInfo.isFile(),
           isDirectory: () => fileInfo.isDirectory(),
           isSymbolicLink: () => false,
-          size: 1,
-          mode: 0o666, // Default permissions
+          size: fileInfo.isDirectory() ? 4096 : 1,
+          mode: fileInfo.isDirectory() ? 0o040755 : 0o100644, // Directory or regular file
           mtimeMs: Date.now(),
+          ctimeMs: Date.now(),
+          birthtimeMs: Date.now(),
+          atimeMs: Date.now(),
           uid: 1000,
           gid: 1000,
+          dev: 1,
+          ino: 1,
+          nlink: 1,
+          rdev: 0,
+          blksize: 4096,
+          blocks: 8,
+          mtime: new Date(),
+          ctime: new Date(),
+          birthtime: new Date(),
+          atime: new Date(),
         };
       } catch (error: any) {
-        console.log(error?.message);
+        if (!error.code) {
+          error.code = 'ENOENT';
+          error.errno = -2;
+          error.syscall = 'stat';
+          error.path = path;
+        }
 
-        const err = new Error(`ENOENT: no such file or directory, stat '${path}'`) as NodeJS.ErrnoException;
-        err.code = 'ENOENT';
-        err.errno = -2;
-        err.syscall = 'stat';
-        err.path = path;
-        throw err;
+        throw error;
       }
     },
     lstat: async (path: string) => {

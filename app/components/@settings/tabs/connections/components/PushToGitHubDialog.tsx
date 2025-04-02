@@ -11,11 +11,12 @@ import { extractRelativePath } from '~/utils/diff';
 import { formatSize } from '~/utils/formatSize';
 import type { FileMap, File } from '~/lib/stores/files';
 import { Octokit } from '@octokit/rest';
+import { connectionStore } from "~/lib/stores/connection";
 
 interface PushToGitHubDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onPush: (repoName: string, username?: string, token?: string, isPrivate?: boolean) => Promise<string>;
+  onPush: (repoName: string, otherUsername: string) => Promise<string>;
 }
 
 interface GitHubRepo {
@@ -33,11 +34,9 @@ interface GitHubRepo {
 
 export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDialogProps) {
   const [repoName, setRepoName] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [githubUsername, setGithubUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<GitHubUserResponse | null>(null);
-  const [recentRepos, setRecentRepos] = useState<GitHubRepo[]>([]);
-  const [isFetchingRepos, setIsFetchingRepos] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [createdRepoUrl, setCreatedRepoUrl] = useState('');
   const [pushedFiles, setPushedFiles] = useState<{ path: string; size: number }[]>([]);
@@ -45,79 +44,20 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
   // Load GitHub connection on mount
   useEffect(() => {
     if (isOpen) {
-      const connection = getLocalStorage('github_connection');
+      const connection = connectionStore.value;
 
       if (connection?.user && connection?.token) {
         setUser(connection.user);
 
-        // Only fetch if we have both user and token
-        if (connection.token.trim()) {
-          fetchRecentRepos(connection.token);
-        }
       }
     }
   }, [isOpen]);
 
-  const fetchRecentRepos = async (token: string) => {
-    if (!token) {
-      logStore.logError('No GitHub token available');
-      toast.error('GitHub authentication required');
-
-      return;
-    }
-
-    try {
-      setIsFetchingRepos(true);
-
-      const response = await fetch(
-        'https://api.github.com/user/repos?sort=updated&per_page=5&type=all&affiliation=owner,organization_member',
-        {
-          headers: {
-            Accept: 'application/vnd.github.v3+json',
-            Authorization: `Bearer ${token.trim()}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-
-        if (response.status === 401) {
-          toast.error('GitHub token expired. Please reconnect your account.');
-
-          // Clear invalid token
-          const connection = getLocalStorage('github_connection');
-
-          if (connection) {
-            localStorage.removeItem('github_connection');
-            setUser(null);
-          }
-        } else {
-          logStore.logError('Failed to fetch GitHub repositories', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData,
-          });
-          toast.error(`Failed to fetch repositories: ${response.statusText}`);
-        }
-
-        return;
-      }
-
-      const repos = (await response.json()) as GitHubRepo[];
-      setRecentRepos(repos);
-    } catch (error) {
-      logStore.logError('Failed to fetch GitHub repositories', { error });
-      toast.error('Failed to fetch recent repositories');
-    } finally {
-      setIsFetchingRepos(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const connection = getLocalStorage('github_connection');
+    const connection = connectionStore.value;
 
     if (!connection?.token || !connection?.user) {
       toast.error('Please connect your GitHub account in Settings > Connections first');
@@ -157,7 +97,7 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
         }
       }
 
-      const repoUrl = await onPush(repoName, connection.user.login, connection.token, isPrivate);
+      const repoUrl = await onPush(repoName, githubUsername);
       setCreatedRepoUrl(repoUrl);
 
       // Get list of pushed files
@@ -181,7 +121,6 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
 
   const handleClose = () => {
     setRepoName('');
-    setIsPrivate(false);
     setShowSuccessDialog(false);
     setCreatedRepoUrl('');
     onClose();
@@ -383,14 +322,6 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                   </Dialog.Close>
                 </div>
 
-                <div className="flex items-center gap-3 mb-6 p-3 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg">
-                  <img src={user.avatar_url} alt={user.login} className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name || user.login}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">@{user.login}</p>
-                  </div>
-                </div>
-
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <label htmlFor="repoName" className="text-sm text-gray-600 dark:text-gray-400">
@@ -400,88 +331,25 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       id="repoName"
                       type="text"
                       value={repoName}
-                      onChange={(e) => setRepoName(e.target.value)}
+                      onChange={(e) => setRepoName(e.target.value.toLocaleLowerCase().replace(/[_\s:]+/g, '-'))}
                       placeholder="my-awesome-project"
                       className="w-full px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-[#E5E5E5] dark:border-[#1A1A1A] text-gray-900 dark:text-white placeholder-gray-400"
                       required
                     />
                   </div>
 
-                  {recentRepos.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-600 dark:text-gray-400">Recent Repositories</label>
-                      <div className="space-y-2">
-                        {recentRepos.map((repo) => (
-                          <motion.button
-                            key={repo.full_name}
-                            type="button"
-                            onClick={() => setRepoName(repo.name)}
-                            className="w-full p-3 text-left rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 hover:bg-bolt-elements-background-depth-3 dark:hover:bg-bolt-elements-background-depth-4 transition-colors group"
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="i-ph:git-repository w-4 h-4 text-purple-500" />
-                                <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-purple-500">
-                                  {repo.name}
-                                </span>
-                              </div>
-                              {repo.private && (
-                                <span className="text-xs px-2 py-1 rounded-full bg-purple-500/10 text-purple-500">
-                                  Private
-                                </span>
-                              )}
-                            </div>
-                            {repo.description && (
-                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                                {repo.description}
-                              </p>
-                            )}
-                            <div className="mt-2 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                              {repo.language && (
-                                <span className="flex items-center gap-1">
-                                  <div className="i-ph:code w-3 h-3" />
-                                  {repo.language}
-                                </span>
-                              )}
-                              <span className="flex items-center gap-1">
-                                <div className="i-ph:star w-3 h-3" />
-                                {repo.stargazers_count.toLocaleString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <div className="i-ph:git-fork w-3 h-3" />
-                                {repo.forks_count.toLocaleString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <div className="i-ph:clock w-3 h-3" />
-                                {new Date(repo.updated_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {isFetchingRepos && (
-                    <div className="flex items-center justify-center py-4 text-gray-500 dark:text-gray-400">
-                      <div className="i-ph:spinner-gap-bold animate-spin w-4 h-4 mr-2" />
-                      Loading repositories...
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="private"
-                      checked={isPrivate}
-                      onChange={(e) => setIsPrivate(e.target.checked)}
-                      className="rounded border-[#E5E5E5] dark:border-[#1A1A1A] text-purple-500 focus:ring-purple-500 dark:bg-[#0A0A0A]"
-                    />
-                    <label htmlFor="private" className="text-sm text-gray-600 dark:text-gray-400">
-                      Make repository private
+                  <div className="space-y-2">
+                    <label htmlFor="githuUsername" className="text-sm text-gray-600 dark:text-gray-400">
+                      Github Username
                     </label>
+                    <input
+                      id="githubUsername"
+                      type="text"
+                      value={githubUsername}
+                      onChange={(e) => setGithubUsername(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-[#E5E5E5] dark:border-[#1A1A1A] text-gray-900 dark:text-white placeholder-gray-400"
+                      required
+                    />
                   </div>
 
                   <div className="pt-4 flex gap-2">

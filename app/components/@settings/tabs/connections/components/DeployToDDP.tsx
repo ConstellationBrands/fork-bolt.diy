@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { getLocalStorage } from '~/lib/persistence';
 import { classNames } from '~/utils/classNames';
 import type { GitHubUserResponse } from '~/types/GitHub';
+import { connectionStore } from '~/lib/stores/connection';
 
 interface DeployToDDPDialogProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ interface DeployToDDPDialogProps {
     environmentName: string,
     org?: string,
     token?: string,
+    setShowSuccessDialog?: (showSuccessDialog: boolean) => void,
+    setIsLoading?: (isLoading: boolean) => void,
   ) => Promise<string>;
 }
 
@@ -32,7 +35,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
   // Load GitHub connection on mount
   useEffect(() => {
     if (isOpen) {
-      const connection = getLocalStorage('github_connection');
+      const connection = connectionStore.value;
 
       if (connection?.user && connection?.token) {
         setUser(connection.user);
@@ -43,7 +46,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const connection = getLocalStorage('github_connection');
+    const connection = connectionStore.value;
 
     if (!connection?.token || !connection?.user) {
       toast.error('Please connect your GitHub account in Settings > Connections first');
@@ -58,14 +61,30 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
     setIsLoading(true);
 
     try {
-      // Check if repository exists first
-      await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
-      setShowSuccessDialog(true);
+      /*
+       * Check if repository exists first
+       * await onPush(repoName, branchName, tenantName, environmentName, 'ConstellationBrands', connection.token);
+       */
+      const org = 'ConstellationBrands';
+      await onPush(
+        repoName,
+        branchName,
+        tenantName,
+        environmentName,
+        org,
+        connection.token,
+        setShowSuccessDialog,
+        setIsLoading,
+      );
+
+      // setShowSuccessDialog(true);
     } catch (error) {
       console.error('Error pushing to GitHub:', error);
       toast.error('Failed to push to GitHub. Please check your repository name and try again.');
     } finally {
-      setIsLoading(false);
+      console.log('HERE');
+
+      // setIsLoading(false);
     }
   };
 
@@ -225,11 +244,18 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
                   </Dialog.Close>
                 </div>
 
-                <div className="flex items-center gap-3 mb-6 p-3 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg">
-                  <img src={user.avatar_url} alt={user.login} className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name || user.login}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">@{user.login}</p>
+                {/*<div className="flex items-center gap-3 mb-6 p-3 bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 rounded-lg">*/}
+                {/*  <img src={user.avatar_url} alt={user.login} className="w-10 h-10 rounded-full" />*/}
+                {/*  <div>*/}
+                {/*    <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name || user.login}</p>*/}
+                {/*    <p className="text-sm text-gray-500 dark:text-gray-400">@{user.login}</p>*/}
+                {/*  </div>*/}
+                {/*</div>*/}
+
+                <div className="bg-yellow-100 border border-yellow-300 rounded-md p-4 mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="i-ph:warning-circle text-yellow-500 w-5 h-5" />
+                    <p className="text-sm text-yellow-700">Deploying to DDP will erase your preview environment</p>
                   </div>
                 </div>
 
@@ -242,7 +268,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
                       id="repoName"
                       type="text"
                       value={repoName}
-                      onChange={(e) => setRepoName(e.target.value)}
+                      onChange={(e) => setRepoName(e.target.value.toLocaleLowerCase().replace(/[_\s:]+/g, '-'))}
                       placeholder="my-awesome-project"
                       className="w-full px-4 py-2 rounded-lg bg-bolt-elements-background-depth-2 dark:bg-bolt-elements-background-depth-3 border border-[#E5E5E5] dark:border-[#1A1A1A] text-gray-900 dark:text-white placeholder-gray-400"
                       required
@@ -251,7 +277,7 @@ export function DeployToDDP({ isOpen, onClose, onPush }: DeployToDDPDialogProps)
 
                   <div className="space-y-2">
                     <label htmlFor="branchName" className="text-sm text-gray-600 dark:text-gray-400">
-                      Branch Name
+                      Variant Name
                     </label>
                     <input
                       id="branchName"

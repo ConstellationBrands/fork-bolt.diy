@@ -17,9 +17,10 @@ import { extractRelativePath } from '~/utils/diff';
 import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
-import type { ActionAlert } from '~/types/actions';
 import { Buffer } from 'node:buffer';
 import * as yaml from 'js-yaml';
+import { tokenStore } from '~/lib/stores/token';
+import type { ActionAlert, SupabaseAlert } from '~/types/actions';
 
 const { saveAs } = fileSaver;
 
@@ -52,9 +53,12 @@ export class WorkbenchStore {
   unsavedFiles: WritableAtom<Set<string>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<string>());
   actionAlert: WritableAtom<ActionAlert | undefined> =
     import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
+  supabaseAlert: WritableAtom<SupabaseAlert | undefined> =
+    import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
   modifiedFiles = new Set<string>();
   artifactIdList: string[] = [];
   #globalExecutionQueue = Promise.resolve();
+
   constructor() {
     if (import.meta.hot) {
       import.meta.hot.data.artifacts = this.artifacts;
@@ -62,6 +66,17 @@ export class WorkbenchStore {
       import.meta.hot.data.showWorkbench = this.showWorkbench;
       import.meta.hot.data.currentView = this.currentView;
       import.meta.hot.data.actionAlert = this.actionAlert;
+      import.meta.hot.data.supabaseAlert = this.supabaseAlert;
+
+      // Ensure binary files are properly preserved across hot reloads
+      const filesMap = this.files.get();
+
+      for (const [path, dirent] of Object.entries(filesMap)) {
+        if (dirent?.type === 'file' && dirent.isBinary && dirent.content) {
+          // Make sure binary content is preserved
+          this.files.setKey(path, { ...dirent });
+        }
+      }
     }
   }
 
@@ -96,14 +111,57 @@ export class WorkbenchStore {
   get showTerminal() {
     return this.#terminalStore.showTerminal;
   }
+
   get boltTerminal() {
     return this.#terminalStore.boltTerminal;
   }
+
   get alert() {
     return this.actionAlert;
   }
+
   clearAlert() {
     this.actionAlert.set(undefined);
+  }
+
+  get projectName() {
+    const project = (description.value ?? 'project')
+      .toLocaleLowerCase()
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .substring(0, 30);
+    return `${project}-${Cookies.get('userId')}`;
+  }
+
+  get description() {
+    return (description.value ?? '').toLocaleLowerCase().replace(/[^a-zA-Z0-9]+/g, '-');
+  }
+
+  get chart() {
+    const files = this.files.get();
+
+    for (const [filePath, dirent] of Object.entries(files)) {
+      if (dirent?.type === 'file' && !dirent.isBinary) {
+        const relativePath = extractRelativePath(filePath);
+
+        if (relativePath === 'vite.config.ts') {
+          return 'vite';
+        }
+
+        if (relativePath === 'next.config.js') {
+          return 'nextjs';
+        }
+      }
+    }
+
+    return 'vite';
+  }
+
+  get SupabaseAlert() {
+    return this.supabaseAlert;
+  }
+
+  clearSupabaseAlert() {
+    this.supabaseAlert.set(undefined);
   }
 
   toggleTerminal(value?: boolean) {
@@ -113,6 +171,7 @@ export class WorkbenchStore {
   attachTerminal(terminal: ITerminal) {
     this.#terminalStore.attachTerminal(terminal);
   }
+
   attachBoltTerminal(terminal: ITerminal) {
     this.#terminalStore.attachBoltTerminal(terminal);
   }
@@ -240,12 +299,127 @@ export class WorkbenchStore {
   getFileModifcations() {
     return this.#filesStore.getFileModifications();
   }
+
   getModifiedFiles() {
     return this.#filesStore.getModifiedFiles();
   }
 
   resetAllFileModifications() {
     this.#filesStore.resetFileModifications();
+  }
+
+  async createFile(filePath: string, content: string | Uint8Array = '') {
+    try {
+      const success = await this.#filesStore.createFile(filePath, content);
+
+      if (success) {
+        this.setSelectedFile(filePath);
+
+        /*
+         * For empty files, we need to ensure they're not marked as unsaved
+         * Only check for empty string, not empty Uint8Array
+         */
+        if (typeof content === 'string' && content === '') {
+          const newUnsavedFiles = new Set(this.unsavedFiles.get());
+          newUnsavedFiles.delete(filePath);
+          this.unsavedFiles.set(newUnsavedFiles);
+        }
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      throw error;
+    }
+  }
+
+  async createFolder(folderPath: string) {
+    try {
+      return await this.#filesStore.createFolder(folderPath);
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      throw error;
+    }
+  }
+
+  async deleteFile(filePath: string) {
+    try {
+      const currentDocument = this.currentDocument.get();
+      const isCurrentFile = currentDocument?.filePath === filePath;
+
+      const success = await this.#filesStore.deleteFile(filePath);
+
+      if (success) {
+        const newUnsavedFiles = new Set(this.unsavedFiles.get());
+
+        if (newUnsavedFiles.has(filePath)) {
+          newUnsavedFiles.delete(filePath);
+          this.unsavedFiles.set(newUnsavedFiles);
+        }
+
+        if (isCurrentFile) {
+          const files = this.files.get();
+          let nextFile: string | undefined = undefined;
+
+          for (const [path, dirent] of Object.entries(files)) {
+            if (dirent?.type === 'file') {
+              nextFile = path;
+              break;
+            }
+          }
+
+          this.setSelectedFile(nextFile);
+        }
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      throw error;
+    }
+  }
+
+  async deleteFolder(folderPath: string) {
+    try {
+      const currentDocument = this.currentDocument.get();
+      const isInCurrentFolder = currentDocument?.filePath?.startsWith(folderPath + '/');
+
+      const success = await this.#filesStore.deleteFolder(folderPath);
+
+      if (success) {
+        const unsavedFiles = this.unsavedFiles.get();
+        const newUnsavedFiles = new Set<string>();
+
+        for (const file of unsavedFiles) {
+          if (!file.startsWith(folderPath + '/')) {
+            newUnsavedFiles.add(file);
+          }
+        }
+
+        if (newUnsavedFiles.size !== unsavedFiles.size) {
+          this.unsavedFiles.set(newUnsavedFiles);
+        }
+
+        if (isInCurrentFolder) {
+          const files = this.files.get();
+          let nextFile: string | undefined = undefined;
+
+          for (const [path, dirent] of Object.entries(files)) {
+            if (dirent?.type === 'file') {
+              nextFile = path;
+              break;
+            }
+          }
+
+          this.setSelectedFile(nextFile);
+        }
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+      throw error;
+    }
   }
 
   abortAllActions() {
@@ -282,6 +456,13 @@ export class WorkbenchStore {
 
           this.actionAlert.set(alert);
         },
+        (alert) => {
+          if (this.#reloadedMessages.has(messageId)) {
+            return;
+          }
+
+          this.supabaseAlert.set(alert);
+        },
       ),
     });
   }
@@ -295,11 +476,13 @@ export class WorkbenchStore {
 
     this.artifacts.setKey(messageId, { ...artifact, ...state });
   }
+
   addAction(data: ActionCallbackData) {
     // this._addAction(data);
 
     this.addToExecutionQueue(() => this._addAction(data));
   }
+
   async _addAction(data: ActionCallbackData) {
     const { messageId } = data;
 
@@ -319,6 +502,7 @@ export class WorkbenchStore {
       this.addToExecutionQueue(() => this._runAction(data, isStreaming));
     }
   }
+
   async _runAction(data: ActionCallbackData, isStreaming: boolean = false) {
     const { messageId } = data;
 
@@ -410,6 +594,41 @@ export class WorkbenchStore {
     saveAs(content, `${uniqueProjectName}.zip`);
   }
 
+  async generateProjectZipFile() {
+    const zip = new JSZip();
+    const files = this.files.get();
+
+    // const projectName = (description.value ?? 'project').toLocaleLowerCase().split(' ').join('_');
+
+    for (const [filePath, dirent] of Object.entries(files)) {
+      if (dirent?.type === 'file' && !dirent.isBinary) {
+        const relativePath = extractRelativePath(filePath);
+
+        // split the path into segments
+        const pathSegments = relativePath.split('/');
+
+        console.log(`FILEPATH: ${filePath} - RELATIVEPATH: ${relativePath}, DIRENT ${JSON.stringify(dirent)}`);
+
+        if (!relativePath.startsWith('dist/')) {
+          // if there's more than one segment, we need to create folders
+          if (pathSegments.length > 1) {
+            let currentFolder = zip;
+
+            for (let i = 0; i < pathSegments.length - 1; i++) {
+              currentFolder = currentFolder.folder(pathSegments[i])!;
+            }
+            currentFolder.file(pathSegments[pathSegments.length - 1], dirent.content);
+          } else {
+            // if there's only one segment, it's a file in the root
+            zip.file(relativePath, dirent.content);
+          }
+        }
+      }
+    }
+
+    return await zip.generateAsync({ type: 'base64' });
+  }
+
   async syncFiles(targetHandle: FileSystemDirectoryHandle) {
     const files = this.files.get();
     const syncedFiles = [];
@@ -441,11 +660,11 @@ export class WorkbenchStore {
     return syncedFiles;
   }
 
-  async pushToGitHub(repoName: string, commitMessage?: string, githubUsername?: string, ghToken?: string) {
+  async pushToGitHub(repoName: string, otherUsername: string, commitMessage?: string, githubUsername?: string) {
     try {
       // Use cookies if username and token are not provided
-      const githubToken = ghToken || Cookies.get('githubToken');
-      const owner = githubUsername || Cookies.get('githubUsername');
+      const githubToken = tokenStore.value;
+      const owner = githubUsername;
 
       if (!githubToken || !owner) {
         throw new Error('GitHub token or username is not set in cookies or provided.');
@@ -455,24 +674,58 @@ export class WorkbenchStore {
       const octokit = new Octokit({ auth: githubToken });
 
       // Check if the repository already exists before creating it
+      let repoExists = false;
       let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+      console.log(`OWNER: ${owner}`);
 
       try {
         const resp = await octokit.repos.get({ owner, repo: repoName });
         repo = resp.data;
+        repoExists = true;
       } catch (error) {
         if (error instanceof Error && 'status' in error && error.status === 404) {
           // Repository doesn't exist, so create a new one
-          const { data: newRepo } = await octokit.repos.createForAuthenticatedUser({
+          const { data: newRepo } = await octokit.repos.createInOrg({
+            org: owner,
             name: repoName,
-            private: false,
-            auto_init: true,
+            private: true,
+            auto_init: false,
           });
           repo = newRepo;
+
+          await octokit.repos.addCollaborator({
+            owner: repo.owner.login,
+            repo: repo.name,
+            username: otherUsername,
+            permission: 'admin', // Set permission to admin
+          });
+
+          const readmeContent = '# ' + repoName + '\n\nThis is a README file for the ' + repoName + ' repository.';
+
+          await octokit.rest.repos.createOrUpdateFileContents({
+            owner: repo.owner.login,
+            repo: repoName,
+            path: 'README.md',
+            message: 'Add README file',
+            content: Buffer.from(readmeContent).toString('base64'), // Encode content to base64
+            author: {
+              name: 'bolt-ddp',
+              email: 'bolt@cbrands.com',
+            },
+            committer: {
+              name: 'bolt-ddp',
+              email: 'bolt@cbrands.com',
+            },
+          });
         } else {
           console.log('cannot create repo!');
           throw error; // Some other error occurred
         }
+      }
+
+      if (repoExists) {
+        alert(`Repository already exists: ${repo.html_url}`);
+        throw new Error('Repository already exists!');
       }
 
       // Get all files
@@ -533,6 +786,10 @@ export class WorkbenchStore {
         message: commitMessage || 'Initial commit from your app',
         tree: newTree.sha,
         parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'bolt@cbrands.com',
+        },
       });
 
       // Update the reference
@@ -550,6 +807,140 @@ export class WorkbenchStore {
     }
   }
 
+  async pushToStageRepo(projectName: string, commitMessage: string, content: string, chart: string) {
+    try {
+      const githubToken = tokenStore.value;
+      const owner = 'ConstellationBrands';
+
+      console.log(`OWNER: ${owner}`);
+
+      if (!owner) {
+        throw new Error('GitHub token or username is not set in cookies or provided.');
+      }
+
+      const octokit = new Octokit({ auth: githubToken });
+
+      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+
+      try {
+        const resp = await octokit.repos.get({ owner, repo: 'stage-repo' });
+        repo = resp.data;
+        console.log(`REPO: ${repo}`);
+      } catch (error) {
+        console.log('Repo not found' + error);
+        throw error;
+      }
+
+      const chartYamlData = {
+        apiVersion: 'v2',
+        name: projectName,
+        description: 'A Helm chart for Kubernetes',
+        version: '0.1.0',
+        appVersion: '1.0',
+
+        dependencies: [
+          {
+            name: chart,
+            version: '0.1.0',
+            repository: `file://../charts/${chart}`,
+          },
+        ],
+      };
+
+      const chartYamlString = yaml.dump(chartYamlData);
+
+      const chartYamlBlob = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content: Buffer.from(chartYamlString).toString('base64'),
+        encoding: 'base64',
+      });
+
+      const configmapYamlString = `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-src
+data:
+  app.zip.txt: |
+{{ .Files.Get "files/app.zip" | b64enc | nindent 4 }}
+      `;
+
+      // const configmapYamlString = yaml.dump(configmapYamlData);
+
+      const configmapYamlBlob = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content: Buffer.from(configmapYamlString).toString('base64'),
+        encoding: 'base64',
+      });
+
+      const zipBlob = await octokit.git.createBlob({
+        owner: repo.owner.login,
+        repo: repo.name,
+        content,
+        encoding: 'base64',
+      });
+
+      const blobs = [
+        { path: `${projectName}/Chart.yaml`, sha: chartYamlBlob.data.sha },
+        { path: `${projectName}/files/app.zip`, sha: zipBlob.data.sha },
+        { path: `${projectName}/templates/configmap.yaml`, sha: configmapYamlBlob.data.sha },
+      ];
+
+      const validBlobs = blobs.filter(Boolean);
+
+      if (validBlobs.length == 0) {
+        throw new Error('No valid files to push');
+      }
+
+      const { data: ref } = await octokit.git.getRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+      });
+      const latestCommitSha = ref.object.sha;
+      console.log(`COMMIT ${latestCommitSha}`);
+
+      // Create a new tree
+      const { data: newTree } = await octokit.git.createTree({
+        owner: repo.owner.login,
+        repo: repo.name,
+        base_tree: latestCommitSha,
+        tree: validBlobs.map((blob) => ({
+          path: blob!.path,
+          mode: '100644',
+          type: 'blob',
+          sha: blob!.sha,
+        })),
+      });
+
+      // Create a new commit
+      const { data: newCommit } = await octokit.git.createCommit({
+        owner: repo.owner.login,
+        repo: repo.name,
+        message: commitMessage,
+        tree: newTree.sha,
+        parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'bolt@cbrands.com',
+        },
+      });
+
+      // Update the reference
+      await octokit.git.updateRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+        sha: newCommit.sha,
+      });
+    } catch (error) {
+      console.error('Error pushing to Github', error);
+      throw error;
+    }
+  }
+
   async deployToDDP(
     repoName: string,
     branchName: string,
@@ -558,12 +949,12 @@ export class WorkbenchStore {
     githubUsername?: string,
     ghToken?: string,
   ) {
-    this.#filesStore.clearFiles();
+    // this.#filesStore.clearFiles();
 
     try {
       // Use cookies if username and token are not provided
-      const githubToken = ghToken || Cookies.get('githubToken');
-      const owner = githubUsername || Cookies.get('githubUsername');
+      const githubToken = ghToken || tokenStore.value;
+      const owner = githubUsername;
 
       console.log(`OWNER: ${owner}`);
       console.log(`TENANT: ${tenantName}`);
@@ -587,19 +978,10 @@ export class WorkbenchStore {
         throw error;
       }
 
-      const deployData = {
-        image: {
-          tag: 'latest',
-          repository: `ghcr.io/constellationbrands/${repoName}`,
-        },
-      };
-
-      const deployYamlString = yaml.dump(deployData);
-
       const blobDeploy = await octokit.git.createBlob({
         owner: repo.owner.login,
         repo: repo.name,
-        content: Buffer.from(deployYamlString).toString('base64'),
+        content: Buffer.from('').toString('base64'),
         encoding: 'base64',
       });
 
@@ -650,6 +1032,10 @@ export class WorkbenchStore {
         message: `Added ${repoName} for variant ${branchName}`,
         tree: newTree.sha,
         parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'bolt@cbrands.com',
+        },
       });
 
       // Update the reference
@@ -662,6 +1048,85 @@ export class WorkbenchStore {
     } catch (error) {
       console.error('Error pushing to GitHub:', error);
       throw error; // Rethrow the error for further handling
+    }
+  }
+
+  async removeRepoFromStage(projectName: string) {
+    try {
+      const githubToken = tokenStore.value;
+      const owner = 'ConstellationBrands';
+
+      console.log('IN RemoveRepoFromStage')
+
+      if (!owner) {
+        throw new Error('GitHub token or username is not set in cookies or provided.');
+      }
+
+      const octokit = new Octokit({ auth: githubToken });
+
+      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+
+      try {
+        const resp = await octokit.repos.get({ owner, repo: 'stage-repo' });
+        repo = resp.data;
+        console.log(`REPO: ${repo}`);
+      } catch (error) {
+        console.log('Repo not found' + error);
+        throw error;
+      }
+
+      const blobs = [{ path: `${projectName}`, sha: null }];
+
+      const validBlobs = blobs.filter(Boolean);
+
+      if (validBlobs.length == 0) {
+        throw new Error('No valid files to push');
+      }
+
+      const { data: ref } = await octokit.git.getRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+      });
+      const latestCommitSha = ref.object.sha;
+      console.log(`COMMIT ${latestCommitSha}`);
+
+      // Create a new tree
+      const { data: newTree } = await octokit.git.createTree({
+        owner: repo.owner.login,
+        repo: repo.name,
+        base_tree: latestCommitSha,
+        tree: validBlobs.map((blob) => ({
+          path: blob!.path,
+          mode: '100644',
+          type: 'blob',
+          sha: blob!.sha,
+        })),
+      });
+
+      // Create a new commit
+      const { data: newCommit } = await octokit.git.createCommit({
+        owner: repo.owner.login,
+        repo: repo.name,
+        message: `removed ${projectName}`,
+        tree: newTree.sha,
+        parents: [latestCommitSha],
+        author: {
+          name: 'bolt-ddp',
+          email: 'bolt@cbrands.com',
+        },
+      });
+
+      // Update the reference
+      await octokit.git.updateRef({
+        owner: repo.owner.login,
+        repo: repo.name,
+        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+        sha: newCommit.sha,
+      });
+    } catch (error) {
+      console.error('Error deleting preview environment', error);
+      throw error;
     }
   }
 }

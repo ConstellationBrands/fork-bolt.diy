@@ -7,7 +7,6 @@ const ALLOW_HEADERS = [
   'accept-language',
   'accept',
   'access-control-allow-origin',
-  'authorization',
   'cache-control',
   'connection',
   'content-length',
@@ -117,6 +116,7 @@ async function handleProxyRequest(request: Request, path: string | undefined) {
     // Add body for non-GET/HEAD requests
     if (!['GET', 'HEAD'].includes(request.method)) {
       fetchOptions.body = request.body;
+      fetchOptions.duplex = 'half';
 
       /*
        * Note: duplex property is removed to ensure TypeScript compatibility

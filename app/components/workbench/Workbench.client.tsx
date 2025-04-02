@@ -24,6 +24,8 @@ import { EditorPanel } from './EditorPanel';
 import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
+import { description } from '~/lib/persistence';
+import { githubUsername } from '~/lib/stores/githubusername';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -280,7 +282,9 @@ export const Workbench = memo(
     renderLogger.trace('Workbench');
 
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isPreviewing, setIsPreviewing] = useState(false);
     const [isPushDialogOpen, setIsPushDialogOpen] = useState(false);
+    const [previewLink, setPreviewLink] = useState('');
     const [fileHistory, setFileHistory] = useState<Record<string, FileHistory>>({});
 
     // const modifiedFiles = Array.from(useStore(workbenchStore.unsavedFiles).keys());
@@ -388,13 +392,68 @@ export const Workbench = memo(
                       </PanelHeaderButton>
                       <PanelHeaderButton
                         className="mr-1 text-sm"
+                        disabled={isPreviewing}
                         onClick={() => {
-                          workbenchStore.downloadZip();
+                          setIsPreviewing(true);
+
+                          const { projectName } = workbenchStore;
+                          const commitMessage = `Updating ${projectName}`;
+
+                          if (!workbenchStore.description) {
+                            alert('Please set a project name');
+                            throw new Error('Please set a project name');
+                          }
+
+                          workbenchStore.generateProjectZipFile().then((zipFile) => {
+                            async function retryPushToStageRepo(
+                              retries: number = 10,
+                              delay: number = 10000,
+                            ): Promise<void> {
+                              try {
+                                setIsPreviewing(true);
+                                await workbenchStore.pushToStageRepo(
+                                  projectName,
+                                  commitMessage,
+                                  zipFile,
+                                  workbenchStore.chart,
+                                );
+                                setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
+                                alert(`Success uploaded to: https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
+                                setIsPreviewing(false);
+                              } catch (error) {
+                                if (retries > 0) {
+                                  console.error(`Error uploading, retrying in ${delay}ms...`, error);
+                                  setTimeout(() => {
+                                    retryPushToStageRepo(retries - 1, delay);
+                                  }, delay);
+                                } else {
+                                  alert('There was an error uploading...');
+                                  console.error('Failed to upload after multiple retries:', error);
+                                  setIsPreviewing(false);
+                                }
+                              }
+                            }
+
+                            retryPushToStageRepo();
+                          });
                         }}
                       >
-                        <div className="i-ph:code" />
+                        <div className="i-ph:eye" />
                         Preview on DDP
                       </PanelHeaderButton>
+
+                      {previewLink && (
+                        <PanelHeaderButton
+                          className="mr-1 text-sm"
+                          onClick={() => {
+                            window.open(previewLink, '_blank');
+                            console.log(`LINK: ${previewLink}`);
+                          }}
+                        >
+                          <div className="link-simple" />
+                          Link
+                        </PanelHeaderButton>
+                      )}
                       <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
                         {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
                         {isSyncing ? 'Syncing...' : 'Sync Files'}
@@ -458,12 +517,13 @@ export const Workbench = memo(
           <PushToGitHubDialog
             isOpen={isPushDialogOpen}
             onClose={() => setIsPushDialogOpen(false)}
-            onPush={async (repoName, username, token) => {
+            onPush={async (repoName, otherUsername) => {
               try {
+                const org = 'ConstellationBrands';
                 const commitMessage = prompt('Please enter a commit message:', 'Initial commit') || 'Initial commit';
-                await workbenchStore.pushToGitHub(repoName, commitMessage, username, token);
+                await workbenchStore.pushToGitHub(repoName, otherUsername, commitMessage, org);
 
-                const repoUrl = `https://github.com/${username}/${repoName}`;
+                const repoUrl = `https://github.com/${org}/${repoName}`;
 
                 if (updateChatMestaData && !metadata?.gitUrl) {
                   updateChatMestaData({
