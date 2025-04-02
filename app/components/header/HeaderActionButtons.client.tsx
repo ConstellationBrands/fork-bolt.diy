@@ -5,9 +5,8 @@ import { chatStore } from '~/lib/stores/chat';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { useEffect, useRef, useState } from 'react';
-import { chatId } from '~/lib/persistence/useChatHistory'; // Add this import
-import { streamingState } from '~/lib/stores/streaming';
 import { DeployToDDP } from '~/components/@settings/tabs/connections/components/DeployToDDP';
+import { streamingState } from '~/lib/stores/streaming';
 
 interface HeaderActionButtonsProps {}
 
@@ -36,8 +35,6 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const currentChatId = useStore(chatId);
 
   return (
     <div className="flex">
@@ -82,7 +79,16 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
           <DeployToDDP
             isOpen={isDeployToDDPDialogOpen}
             onClose={() => setIsDeployToDDPDialogOpen(false)}
-            onPush={async (repoName, branchName, tenantName, environmentName, org, token, setShowSuccessDialog, setIsLoading) => {
+            onPush={async (
+              repoName,
+              branchName,
+              tenantName,
+              environmentName,
+              org,
+              token,
+              setShowSuccessDialog,
+              setIsLoading,
+            ) => {
               try {
                 console.log(`TENANT2: ${tenantName}`);
 
@@ -92,7 +98,8 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
                 ): Promise<string | undefined> {
                   try {
                     await workbenchStore.deployToDDP(repoName, branchName, tenantName, environmentName, org, token);
-                    console.log("Success on DeployToDDP");
+                    console.log('Success on DeployToDDP');
+
                     return `https://github.com/${org}/${repoName}`;
                   } catch (error) {
                     if (retries > 0) {

@@ -14,13 +14,13 @@ import fileSaver from 'file-saver';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
 import { extractRelativePath } from '~/utils/diff';
-import { description, chatId } from '~/lib/persistence';
+import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
-import type { ActionAlert } from '~/types/actions';
 import { Buffer } from 'node:buffer';
 import * as yaml from 'js-yaml';
 import { tokenStore } from '~/lib/stores/token';
+import type { ActionAlert, SupabaseAlert } from '~/types/actions';
 
 const { saveAs } = fileSaver;
 
@@ -53,6 +53,8 @@ export class WorkbenchStore {
   unsavedFiles: WritableAtom<Set<string>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<string>());
   actionAlert: WritableAtom<ActionAlert | undefined> =
     import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
+  supabaseAlert: WritableAtom<SupabaseAlert | undefined> =
+    import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
   modifiedFiles = new Set<string>();
   artifactIdList: string[] = [];
   #globalExecutionQueue = Promise.resolve();
@@ -64,6 +66,17 @@ export class WorkbenchStore {
       import.meta.hot.data.showWorkbench = this.showWorkbench;
       import.meta.hot.data.currentView = this.currentView;
       import.meta.hot.data.actionAlert = this.actionAlert;
+      import.meta.hot.data.supabaseAlert = this.supabaseAlert;
+
+      // Ensure binary files are properly preserved across hot reloads
+      const filesMap = this.files.get();
+
+      for (const [path, dirent] of Object.entries(filesMap)) {
+        if (dirent?.type === 'file' && dirent.isBinary && dirent.content) {
+          // Make sure binary content is preserved
+          this.files.setKey(path, { ...dirent });
+        }
+      }
     }
   }
 
@@ -141,6 +154,14 @@ export class WorkbenchStore {
     }
 
     return 'vite';
+  }
+
+  get SupabaseAlert() {
+    return this.supabaseAlert;
+  }
+
+  clearSupabaseAlert() {
+    this.supabaseAlert.set(undefined);
   }
 
   toggleTerminal(value?: boolean) {
@@ -287,6 +308,120 @@ export class WorkbenchStore {
     this.#filesStore.resetFileModifications();
   }
 
+  async createFile(filePath: string, content: string | Uint8Array = '') {
+    try {
+      const success = await this.#filesStore.createFile(filePath, content);
+
+      if (success) {
+        this.setSelectedFile(filePath);
+
+        /*
+         * For empty files, we need to ensure they're not marked as unsaved
+         * Only check for empty string, not empty Uint8Array
+         */
+        if (typeof content === 'string' && content === '') {
+          const newUnsavedFiles = new Set(this.unsavedFiles.get());
+          newUnsavedFiles.delete(filePath);
+          this.unsavedFiles.set(newUnsavedFiles);
+        }
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to create file:', error);
+      throw error;
+    }
+  }
+
+  async createFolder(folderPath: string) {
+    try {
+      return await this.#filesStore.createFolder(folderPath);
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+      throw error;
+    }
+  }
+
+  async deleteFile(filePath: string) {
+    try {
+      const currentDocument = this.currentDocument.get();
+      const isCurrentFile = currentDocument?.filePath === filePath;
+
+      const success = await this.#filesStore.deleteFile(filePath);
+
+      if (success) {
+        const newUnsavedFiles = new Set(this.unsavedFiles.get());
+
+        if (newUnsavedFiles.has(filePath)) {
+          newUnsavedFiles.delete(filePath);
+          this.unsavedFiles.set(newUnsavedFiles);
+        }
+
+        if (isCurrentFile) {
+          const files = this.files.get();
+          let nextFile: string | undefined = undefined;
+
+          for (const [path, dirent] of Object.entries(files)) {
+            if (dirent?.type === 'file') {
+              nextFile = path;
+              break;
+            }
+          }
+
+          this.setSelectedFile(nextFile);
+        }
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      throw error;
+    }
+  }
+
+  async deleteFolder(folderPath: string) {
+    try {
+      const currentDocument = this.currentDocument.get();
+      const isInCurrentFolder = currentDocument?.filePath?.startsWith(folderPath + '/');
+
+      const success = await this.#filesStore.deleteFolder(folderPath);
+
+      if (success) {
+        const unsavedFiles = this.unsavedFiles.get();
+        const newUnsavedFiles = new Set<string>();
+
+        for (const file of unsavedFiles) {
+          if (!file.startsWith(folderPath + '/')) {
+            newUnsavedFiles.add(file);
+          }
+        }
+
+        if (newUnsavedFiles.size !== unsavedFiles.size) {
+          this.unsavedFiles.set(newUnsavedFiles);
+        }
+
+        if (isInCurrentFolder) {
+          const files = this.files.get();
+          let nextFile: string | undefined = undefined;
+
+          for (const [path, dirent] of Object.entries(files)) {
+            if (dirent?.type === 'file') {
+              nextFile = path;
+              break;
+            }
+          }
+
+          this.setSelectedFile(nextFile);
+        }
+      }
+
+      return success;
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+      throw error;
+    }
+  }
+
   abortAllActions() {
     // TODO: what do we wanna do and how do we wanna recover from this?
   }
@@ -320,6 +455,13 @@ export class WorkbenchStore {
           }
 
           this.actionAlert.set(alert);
+        },
+        (alert) => {
+          if (this.#reloadedMessages.has(messageId)) {
+            return;
+          }
+
+          this.supabaseAlert.set(alert);
         },
       ),
     });
@@ -807,7 +949,7 @@ data:
     githubUsername?: string,
     ghToken?: string,
   ) {
-    this.#filesStore.clearFiles();
+    // this.#filesStore.clearFiles();
 
     try {
       // Use cookies if username and token are not provided
