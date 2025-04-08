@@ -89,7 +89,8 @@ import { tokenStore } from '~/lib/stores/token';
 import { connectionStore } from '~/lib/stores/connection';
 import { nanoid } from 'nanoid';
 import { customAlphabet } from 'nanoid'
-import { alphanumeric } from 'nanoid-dictionary';
+import dictionary from 'nanoid-dictionary';
+const { alphanumeric } = dictionary;
 import { githubUsername } from './lib/stores/githubusername';
 
 
@@ -109,6 +110,9 @@ export default function App() {
       const jsonData = await secretsResponse.json();
 
       const token = jsonData.githubToken;
+
+      const awsCredentials = await fetch('/api/aws-credentials');
+      console.log(`CREDS: ${JSON.stringify(awsCredentials)}`)
 
       const response = await fetch('https://api.github.com/user', {
         headers: {

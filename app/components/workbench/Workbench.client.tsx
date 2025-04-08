@@ -26,6 +26,7 @@ import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
 import { description } from '~/lib/persistence';
 import { githubUsername } from '~/lib/stores/githubusername';
+import { uploadZipToS3 } from '~/lib/stores/s3';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -405,36 +406,11 @@ export const Workbench = memo(
                           }
 
                           workbenchStore.generateProjectZipFile().then((zipFile) => {
-                            async function retryPushToStageRepo(
-                              retries: number = 10,
-                              delay: number = 10000,
-                            ): Promise<void> {
-                              try {
-                                setIsPreviewing(true);
-                                await workbenchStore.pushToStageRepo(
-                                  projectName,
-                                  commitMessage,
-                                  zipFile,
-                                  workbenchStore.chart,
-                                );
-                                setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
-                                alert(`Success uploaded to: https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
+                            uploadZipToS3(zipFile, 'cbi-sdlc-stage', `${projectName}.zip`)
+                              .then((r) => {})
+                              .finally(() => {
                                 setIsPreviewing(false);
-                              } catch (error) {
-                                if (retries > 0) {
-                                  console.error(`Error uploading, retrying in ${delay}ms...`, error);
-                                  setTimeout(() => {
-                                    retryPushToStageRepo(retries - 1, delay);
-                                  }, delay);
-                                } else {
-                                  alert('There was an error uploading...');
-                                  console.error('Failed to upload after multiple retries:', error);
-                                  setIsPreviewing(false);
-                                }
-                              }
-                            }
-
-                            retryPushToStageRepo();
+                              });
                           });
                         }}
                       >
