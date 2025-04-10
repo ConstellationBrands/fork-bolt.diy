@@ -407,8 +407,8 @@ export const Workbench = memo(
 
                           workbenchStore.generateProjectZipFile().then((zipFile) => {
                             uploadZipToS3(zipFile, 'cbi-sdlc-stage', `${projectName}.zip`)
-                              .then((r) => {})
                               .finally(() => {
+                                setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
                                 setIsPreviewing(false);
                               });
                           });
