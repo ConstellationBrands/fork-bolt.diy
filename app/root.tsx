@@ -111,8 +111,6 @@ export default function App() {
 
       const token = jsonData.githubToken;
 
-      const awsCredentials = await fetch('/api/aws-credentials');
-      console.log(`CREDS: ${JSON.stringify(awsCredentials)}`)
 
       const response = await fetch('https://api.github.com/user', {
         headers: {
