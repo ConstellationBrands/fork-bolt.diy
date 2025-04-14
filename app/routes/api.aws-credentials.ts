@@ -38,6 +38,9 @@ async function getTemporaryCredentials(roleArn, webIdentityToken) {
 
 export const action: ActionFunction = async ({ request, context }) => {
   try {
+
+    console.log('REQUEST', request.headers.get('cookie'))
+
     if (request.method !== 'POST') {
       return json({ error: 'Method not allowed' }, { status: 405 });
     }
@@ -61,6 +64,20 @@ export const action: ActionFunction = async ({ request, context }) => {
         Body: buffer,
       }),
     );
+
+
+    const response = await fetch('https://workflows.devop.sdlc.app.cbrands.com/api/v1/events/enterprise-tool-flow-dev/zip', {
+      method: 'POST',
+      headers: {
+        cookie: request.headers.get('cookie'),
+      },
+      body: JSON.stringify({
+        zipfile_name: s3Key,
+      })
+    })
+  
+    console.log('RESPONSE', response.status.toString());
+
     return { success: true };
   } catch (error) {
     return { success: false };

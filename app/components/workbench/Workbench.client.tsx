@@ -419,31 +419,6 @@ export const Workbench = memo(
                         Preview on DDP
                       </PanelHeaderButton>
 
-                      <PanelHeaderButton
-                          className="mr-1 text-sm"
-                          onClick={() => {
-                            console.log('HIT');
-                            const proxy_cd = Cookies.get('_oauth2_proxy-cd');
-                            const proxy_prod = Cookies.get('_oauth2_proxy-prod');
-                            const proxy_sandbox = Cookies.get('_oauth2_proxy-sandbox');
-                            const user = Cookies.get('userId');
-                            console.log('CD: ', proxy_cd);
-                            console.log('PROD', proxy_prod);
-                            console.log('SANDBOX', proxy_sandbox);
-                            const response = fetch('https://9239-2806-262-48f-81e5-665d-f9f3-f2f-a3f2.ngrok-free.app', {
-                              method: 'POST',
-                              headers: {
-                                'name': '_oauth2_proxy-prod=djIuWDI5aGRYUm9NbDl3Y205NGVTMXdjbTlrTFRrMk1HTTRNVEUzWlRoaE4yVTJNMk13WlRaaE5XRmtNVGRoWVRVd05UVmkuVm5KQTM4eEs0dXBiTF9pUDZTcURhdw==|1744210898|Jp7q6VCWkHXoiePRiOZUfjDxs0_O3tSkKTuV5B4Z8uI=; _oauth2_proxy-cd=djIuWDI5aGRYUm9NbDl3Y205NGVTMWpaQzFsTmpNeU9HSmpNMlF4T0RJeFpHTTVaV1JtTTJNd01ERmxaVEU1WTJVNVlRLk1Zc0xjRkEzQkE4aUpMSjJ2b21GbVE=|1744211779|7Ep0BySQpy4y9GgPYPoI8NKHzGs4a4__8c_UWuDyCmA=; _oauth2_proxy-sandbox=djIuWDI5aGRYUm9NbDl3Y205NGVTMXpZVzVrWW05NExXWmxaRE13T0RKa01qYzBObU0yWlRFNFl6bGhPRGM1TTJNMllXVmpaamd4LmpNSVc0bDI3NXdNTXRockRfZjRGNUE=|1744317062|6HGLfodR5a0qWa4z8ntVcLGT32z2oOpG39pk9-_zQPk='
-                              },
-                              body: JSON.stringify({
-                                zipfile_name: 'code.zip',
-                            })
-                          })}}
-                        >
-                          <div className="link-simple" />
-                          Go
-                        </PanelHeaderButton>
-
                       {previewLink && (
                         <PanelHeaderButton
                           className="mr-1 text-sm"
