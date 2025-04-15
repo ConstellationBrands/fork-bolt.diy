@@ -84,17 +84,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 import { logStore } from './lib/stores/logs';
 import type { GitHubConnection, GitHubUserResponse } from '~/types/GitHub';
 import Cookies from 'js-cookie';
-import { toast } from 'react-toastify';
-import { tokenStore } from '~/lib/stores/token';
-import { connectionStore } from '~/lib/stores/connection';
-import { nanoid } from 'nanoid';
 import { customAlphabet } from 'nanoid'
 import dictionary from 'nanoid-dictionary';
 const { alphanumeric } = dictionary;
-import { githubUsername } from './lib/stores/githubusername';
 
-
-// import { userLoader } from '@remix-run/react';
 
 export default function App() {
   const theme = useStore(themeStore);
@@ -104,31 +97,8 @@ export default function App() {
     tokenType: 'classic',
   });
 
-  const fetchGithubUser = async () => {
+  const fetchUserId = async () => {
     try {
-      const secretsResponse = await fetch('/api/secrets');
-      const jsonData = await secretsResponse.json();
-
-      const token = jsonData.githubToken;
-
-
-      const response = await fetch('https://api.github.com/user', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Invalid token or unauthorized');
-      }
-
-      const data = (await response.json()) as GitHubUserResponse;
-      const newConnection: GitHubConnection = {
-        user: data,
-        token,
-        tokenType: connection.tokenType,
-      };
-
       const user = Cookies.get('userId');
 
       if (!user) {
@@ -136,22 +106,8 @@ export default function App() {
         const shortUUID: string = nanoid().toLowerCase()
         Cookies.set('userId', shortUUID);
       }
-
-      // localStorage.setItem('github_connection', JSON.stringify(newConnection));
-      connectionStore.set(newConnection);
-      // Cookies.set('githubToken', token);
-      tokenStore.set(token);
-      githubUsername.set(data.login);
-      //Cookies.set('githubUsername', data.login);
-      // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
-
-      setConnection(newConnection);
-      toast.success('Successfully connected to GitHub');
     } catch (error) {
       logStore.logError('Failed to authenticate with GitHub', { error });
-      toast.error('Failed to connect to GitHub');
-      setConnection({ user: null, token: '', tokenType: 'classic' });
-    } finally {
     }
   };
 
@@ -162,7 +118,7 @@ export default function App() {
       userAgent: navigator.userAgent,
       timestamp: new Date().toISOString(),
     });
-    fetchGithubUser();
+    fetchUserId();
   }, []);
 
   return (

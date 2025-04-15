@@ -2,8 +2,6 @@ import ignore from 'ignore';
 import type { ProviderInfo } from '~/types/model';
 import type { Template } from '~/types/template';
 import { STARTER_TEMPLATES } from './constants';
-import Cookies from 'js-cookie';
-import { tokenStore } from "~/lib/stores/token";
 
 const starterTemplateSelectionPrompt = (templates: Template[]) => `
 You are an experienced developer who helps people choose the best starter template for their projects.
@@ -119,16 +117,9 @@ const getGitHubRepoContent = async (
   const baseUrl = 'https://api.github.com';
 
   try {
-    const token = tokenStore.value;
-
     const headers: HeadersInit = {
       Accept: 'application/vnd.github.v3+json',
     };
-
-    // Add your GitHub token if needed
-    if (token) {
-      headers.Authorization = 'Bearer ' + token;
-    }
 
     // Fetch contents of the path
     const response = await fetch(`${baseUrl}/repos/${repoName}/contents/${path}`, {

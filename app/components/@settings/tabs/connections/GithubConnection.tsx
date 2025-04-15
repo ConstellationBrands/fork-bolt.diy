@@ -3,9 +3,6 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { logStore } from '~/lib/stores/logs';
 import { classNames } from '~/utils/classNames';
-import { tokenStore } from '~/lib/stores/token';
-import { connectionStore } from '~/lib/stores/connection';
-import { githubUsername } from '~/lib/stores/githubusername';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '~/components/ui/Collapsible';
 import { Button } from '~/components/ui/Button';
 
@@ -336,14 +333,10 @@ export default function GitHubConnection() {
       return;
     }
 
-    const token = connection.token;
-    const data = connection.user;
-
     tokenStore.set(token);
 
     if (data) {
       //Cookies.set('githubUsername', data.login);
-      githubUsername.set(data.login);
     }
   }, [connection]);
 
