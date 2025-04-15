@@ -88,8 +88,8 @@ import { toast } from 'react-toastify';
 import { tokenStore } from '~/lib/stores/token';
 import { connectionStore } from '~/lib/stores/connection';
 import { nanoid } from 'nanoid';
-import { customAlphabet } from 'nanoid'
-import { alphanumeric } from 'nanoid-dictionary';
+import dictionary from 'nanoid-dictionary';
+const { alphanumeric } = dictionary;
 import { githubUsername } from './lib/stores/githubusername';
 
 
