@@ -377,7 +377,7 @@ export const Workbench = memo(
           >
             <div className="absolute inset-0 px-2 lg:px-6">
               <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
-                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1">
+                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor">
                   <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
                   <div className="ml-auto" />
                   {selectedView === 'code' && (
@@ -406,10 +406,11 @@ export const Workbench = memo(
                           }
 
                           workbenchStore.generateProjectZipFile().then((zipFile) => {
-                            uploadZipToS3(zipFile, 'cbi-sdlc-stage', `${projectName}.zip`).finally(() => {
-                              setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
-                              setIsPreviewing(false);
-                            });
+                            uploadZipToS3(zipFile, 'cbi-sdlc-stage', `${projectName}.zip`)
+                              .finally(() => {
+                                setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
+                                setIsPreviewing(false);
+                              });
                           });
                         }}
                       >
@@ -425,7 +426,7 @@ export const Workbench = memo(
                             console.log(`LINK: ${previewLink}`);
                           }}
                         >
-                          <div className="link-simple" />
+                          <div className="i-ph:link" />
                           Link
                         </PanelHeaderButton>
                       )}
@@ -442,64 +443,12 @@ export const Workbench = memo(
                         <div className="i-ph:terminal" />
                         Toggle Terminal
                       </PanelHeaderButton>
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger className="text-sm flex items-center gap-1 text-bolt-elements-item-contentDefault bg-transparent enabled:hover:text-bolt-elements-item-contentActive rounded-md p-1 enabled:hover:bg-bolt-elements-item-backgroundActive disabled:cursor-not-allowed">
-                          <div className="i-ph:box-arrow-up" />
-                          Sync & Export
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content
-                          className={classNames(
-                            'min-w-[240px] z-[250]',
-                            'bg-white dark:bg-[#141414]',
-                            'rounded-lg shadow-lg',
-                            'border border-gray-200/50 dark:border-gray-800/50',
-                            'animate-in fade-in-0 zoom-in-95',
-                            'py-1',
-                          )}
-                          sideOffset={5}
-                          align="end"
-                        >
-                          <DropdownMenu.Item
-                            className={classNames(
-                              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-                            )}
-                            onClick={() => {
-                              workbenchStore.downloadZip();
-                            }}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="i-ph:download-simple"></div>
-                              <span>Download Code</span>
-                            </div>
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            className={classNames(
-                              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-                            )}
-                            onClick={handleSyncFiles}
-                            disabled={isSyncing}
-                          >
-                            <div className="flex items-center gap-2">
-                              {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
-                              <span>{isSyncing ? 'Syncing...' : 'Sync Files'}</span>
-                            </div>
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            className={classNames(
-                              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-                            )}
-                            onClick={() => setIsPushDialogOpen(true)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className="i-ph:git-branch" />
-                              Push to GitHub
-                            </div>
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
+                      <PanelHeaderButton className="mr-1 text-sm" onClick={() => setIsPushDialogOpen(true)}>
+                        <div className="i-ph:git-branch" />
+                        Push to GitHub
+                      </PanelHeaderButton>
                     </div>
                   )}
-
                   {selectedView === 'diff' && (
                     <FileModifiedDropdown fileHistory={fileHistory} onSelectFile={handleSelectFile} />
                   )}
@@ -579,8 +528,9 @@ interface ViewProps extends HTMLMotionProps<'div'> {
 }
 
 const View = memo(({ children, ...props }: ViewProps) => {
-  return;
-  <motion.div className="absolute inset-0" transition={viewTransition} {...props}>
-    {children}
-  </motion.div>;
+  return (
+    <motion.div className="absolute inset-0" transition={viewTransition} {...props}>
+      {children}
+    </motion.div>
+  );
 });

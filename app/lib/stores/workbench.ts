@@ -19,8 +19,7 @@ import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import { Buffer } from 'node:buffer';
 import * as yaml from 'js-yaml';
-import type { ActionAlert, DeployAlert, SupabaseAlert } from '~/types/actions';
-
+import type { ActionAlert, SupabaseAlert } from '~/types/actions';
 
 const { saveAs } = fileSaver;
 
@@ -55,8 +54,6 @@ export class WorkbenchStore {
     import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
   supabaseAlert: WritableAtom<SupabaseAlert | undefined> =
     import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
-  deployAlert: WritableAtom<DeployAlert | undefined> =
-    import.meta.hot?.data.unsavedFiles ?? atom<DeployAlert | undefined>(undefined);
   modifiedFiles = new Set<string>();
   artifactIdList: string[] = [];
   #globalExecutionQueue = Promise.resolve();
@@ -69,7 +66,6 @@ export class WorkbenchStore {
       import.meta.hot.data.currentView = this.currentView;
       import.meta.hot.data.actionAlert = this.actionAlert;
       import.meta.hot.data.supabaseAlert = this.supabaseAlert;
-      import.meta.hot.data.deployAlert = this.deployAlert;
 
       // Ensure binary files are properly preserved across hot reloads
       const filesMap = this.files.get();
@@ -165,14 +161,6 @@ export class WorkbenchStore {
 
   clearSupabaseAlert() {
     this.supabaseAlert.set(undefined);
-  }
-
-  get DeployAlert() {
-    return this.deployAlert;
-  }
-
-  clearDeployAlert() {
-    this.deployAlert.set(undefined);
   }
 
   toggleTerminal(value?: boolean) {
@@ -474,13 +462,6 @@ export class WorkbenchStore {
 
           this.supabaseAlert.set(alert);
         },
-        (alert) => {
-          if (this.#reloadedMessages.has(messageId)) {
-            return;
-          }
-
-          this.deployAlert.set(alert);
-        },
       ),
     });
   }
@@ -736,7 +717,7 @@ export class WorkbenchStore {
             },
           });
         } else {
-          console.error('Cannot create repo:', error);
+          console.log('cannot create repo!');
           throw error; // Some other error occurred
         }
       }
@@ -837,6 +818,7 @@ export class WorkbenchStore {
 
     try {
       // Use cookies if username and token are not provided
+      // TODO USE TOKEN FROM SETTINGS
       const githubToken = ghToken || Cookies.get('githubToken');
       const owner = githubUsername;
 
