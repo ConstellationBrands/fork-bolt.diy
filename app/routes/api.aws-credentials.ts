@@ -6,6 +6,7 @@ import { STSClient, AssumeRoleWithWebIdentityCommand } from '@aws-sdk/client-sts
 async function getCurrentToken(tokenService) {
   try {
     // In Cloudflare Workers, you'd use fetch instead of requiring a module
+    console.log(`TOKEN SERVICE: ${tokenService}`);
     const response = await fetch(`${tokenService}/token`);
     const data = await response.json();
     return data.token;
@@ -60,9 +61,12 @@ export const action: ActionFunction = async ({ request, context }) => {
 
     let credentials;
     const tokenService = context.cloudflare.env.TOKEN_SERVICE_NAME;
+    console.log(`TOKEN ENV VAR: ${tokenService}`);
     const token = await getCurrentToken(tokenService);
 
+    console.log('PRE SUBIDA');
     credentials = await getTemporaryCredentials(context.cloudflare.env.AWS_ROLE_ARN, token);
+    console.log('POST TEMP CREDENTIALS');
     const buffer = Buffer.from(zipFileBase64, 'base64');
     const s3 = new AWS.S3Client({
       region: 'us-east-1',
@@ -76,6 +80,8 @@ export const action: ActionFunction = async ({ request, context }) => {
         Body: buffer,
       }),
     );
+
+    console.log('POST SUBIDA')
 
     const response = await fetch('https://workflows.devop.sdlc.app.cbrands.com/api/v1/events/enterprise-tool-flow-dev/zip', {
       method: 'POST',
