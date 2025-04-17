@@ -63,9 +63,14 @@ export const action: ActionFunction = async ({ request, context }) => {
     const tokenService = context.cloudflare.env.TOKEN_SERVICE_NAME;
     console.log(`TOKEN ENV VAR: ${tokenService}`);
     const token = await getCurrentToken(tokenService);
+    console.log(`TOKEN: ${token}`);
 
     console.log('PRE SUBIDA');
-    credentials = await getTemporaryCredentials(context.cloudflare.env.AWS_ROLE_ARN, token);
+    try {
+      credentials = await getTemporaryCredentials(context.cloudflare.env.AWS_ROLE_ARN, token);
+    } catch (error) {
+      console.log('ERROR ', error);
+    }
     console.log('POST TEMP CREDENTIALS');
     const buffer = Buffer.from(zipFileBase64, 'base64');
     const s3 = new AWS.S3Client({
