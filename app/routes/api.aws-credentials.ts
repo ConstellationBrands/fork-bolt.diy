@@ -3,10 +3,10 @@ import * as AWS from '@aws-sdk/client-s3';
 import { STSClient, AssumeRoleWithWebIdentityCommand } from '@aws-sdk/client-sts';
 
 // Function to get the current token from the sidecar
-async function getCurrentToken() {
+async function getCurrentToken(tokenService) {
   try {
     // In Cloudflare Workers, you'd use fetch instead of requiring a module
-    const response = await fetch('http://token-provider.sandbox.svc.cluster.local:80/token');
+    const response = await fetch(`${tokenService}/token`);
     const data = await response.json();
     return data.token;
   } catch (error) {
@@ -40,6 +40,17 @@ export const action: ActionFunction = async ({ request, context }) => {
   try {
 
     console.log('REQUEST', request.headers.get('cookie'))
+    console.log(`REQUEST HEADERS ALL ${JSON.stringify(request.headers)}`)
+    console.log(`REQUEST HEADERS KEYS ${request.headers.keys}`)
+    console.log(`REQUEST HEADERS VALUES ${request.headers.values}`)
+
+    const headers = request.headers;
+
+    // Log all headers
+    for (const [key, value] of headers.entries()) {
+      console.log(`${key}: ${value}`);
+    }
+
 
     if (request.method !== 'POST') {
       return json({ error: 'Method not allowed' }, { status: 405 });
@@ -48,7 +59,8 @@ export const action: ActionFunction = async ({ request, context }) => {
     const { zipFileBase64, bucketName, s3Key } = await request.json();
 
     let credentials;
-    const token = await getCurrentToken();
+    const tokenService = context.cloudflare.env.TOKEN_SERVICE_NAME;
+    const token = await getCurrentToken(tokenService);
 
     credentials = await getTemporaryCredentials(context.cloudflare.env.AWS_ROLE_ARN, token);
     const buffer = Buffer.from(zipFileBase64, 'base64');
@@ -64,7 +76,6 @@ export const action: ActionFunction = async ({ request, context }) => {
         Body: buffer,
       }),
     );
-
 
     const response = await fetch('https://workflows.devop.sdlc.app.cbrands.com/api/v1/events/enterprise-tool-flow-dev/zip', {
       method: 'POST',

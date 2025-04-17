@@ -22,4 +22,6 @@ interface Env {
 
   IDSGPT_API_BASE_URL: string;
   IDSGPT_API_KEY: string;
+
+  TOKEN_SERVICE_NAME: string;
 }
