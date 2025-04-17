@@ -8,7 +8,7 @@
 name: Create and publish a Docker image
 on:
   push:
-    branches: [ cbi-main, feature_preview ]
+    branches: [ feature_s3_upload ]
   workflow_dispatch:
 env:
   APP_NAME: fork-bolt-diy
