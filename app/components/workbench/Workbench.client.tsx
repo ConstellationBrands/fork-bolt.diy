@@ -408,7 +408,7 @@ export const Workbench = memo(
                           workbenchStore.generateProjectZipFile().then((zipFile) => {
                             uploadZipToS3(zipFile, `${projectName}.zip`)
                               .finally(() => {
-                                setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
+                                setPreviewLink(`https://stage-${projectName}.sdlc.app.cbrands.com`);
                                 setIsPreviewing(false);
                               });
                           });
@@ -427,7 +427,7 @@ export const Workbench = memo(
                           }}
                         >
                           <div className="i-ph:link" />
-                          Link
+                          Preview Link
                         </PanelHeaderButton>
                       )}
                       <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
