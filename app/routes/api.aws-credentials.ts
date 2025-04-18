@@ -9,7 +9,7 @@ export const action: ActionFunction = async ({ request, context }) => {
       return json({ error: 'Method not allowed' }, { status: 405 });
     }
 
-    const { zipFileBase64, bucketName, s3Key } = await request.json();
+    const { zipFileBase64, s3Key } = await request.json();
 
     const buffer = Buffer.from(zipFileBase64, 'base64');
     const s3 = new AWS.S3Client({
@@ -22,7 +22,7 @@ export const action: ActionFunction = async ({ request, context }) => {
 
     await s3.send(
       new AWS.PutObjectCommand({
-        Bucket: bucketName,
+        Bucket: context.cloudflare.env.BUCKET_NAME,
         Key: s3Key,
         Body: buffer,
       }),
