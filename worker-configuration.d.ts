@@ -24,4 +24,6 @@ interface Env {
   IDSGPT_API_KEY: string;
 
   TOKEN_SERVICE_NAME: string;
+  ARGO_WORKFLOW_ENDPOINT: string;
+  BUCKET_NAME: string;
 }

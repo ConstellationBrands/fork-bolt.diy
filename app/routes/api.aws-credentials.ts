@@ -40,19 +40,6 @@ async function getTemporaryCredentials(roleArn, webIdentityToken) {
 export const action: ActionFunction = async ({ request, context }) => {
   try {
 
-    console.log('REQUEST', request.headers.get('cookie'))
-    console.log(`REQUEST HEADERS ALL ${JSON.stringify(request.headers)}`)
-    console.log(`REQUEST HEADERS KEYS ${request.headers.keys}`)
-    console.log(`REQUEST HEADERS VALUES ${request.headers.values}`)
-
-    const headers = request.headers;
-
-    // Log all headers
-    for (const [key, value] of headers.entries()) {
-      console.log(`${key}: ${value}`);
-    }
-
-
     if (request.method !== 'POST') {
       return json({ error: 'Method not allowed' }, { status: 405 });
     }
@@ -88,13 +75,15 @@ export const action: ActionFunction = async ({ request, context }) => {
 
     console.log('POST SUBIDA')
 
-    const response = await fetch('https://workflows.devop.sdlc.app.cbrands.com/api/v1/events/enterprise-tool-flow-dev/zip', {
+    // Sandbox/SDLC: https://workflows.devop.sdlc.app.cbrands.com/api/v1/events/enterprise-tool-flow-dev/zip
+    const response = await fetch(context.cloudflare.env.ARGO_WORKFLOW_ENDPOINT, {
       method: 'POST',
       headers: {
         cookie: request.headers.get('cookie'),
       },
       body: JSON.stringify({
         zipfile_name: s3Key,
+        bucket_name: context.cloudflare.env.BUCKET_NAME,
       })
     })
   
