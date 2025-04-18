@@ -1,6 +1,6 @@
 interface Env {
   RUNNING_IN_DOCKER: Settings;
-  GITHUB_TOKEN: string;
+  AWS_ROLE_ARN: string;
   DEFAULT_NUM_CTX: Settings;
   ANTHROPIC_API_KEY: string;
   OPENAI_API_KEY: string;
@@ -22,4 +22,8 @@ interface Env {
 
   IDSGPT_API_BASE_URL: string;
   IDSGPT_API_KEY: string;
+
+  TOKEN_SERVICE_NAME: string;
+  ARGO_WORKFLOW_ENDPOINT: string;
+  BUCKET_NAME: string;
 }

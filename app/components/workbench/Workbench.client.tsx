@@ -1,4 +1,5 @@
 import { useStore } from '@nanostores/react';
+import Cookies from 'js-cookie';
 import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useState, useMemo } from 'react';
@@ -24,8 +25,8 @@ import { EditorPanel } from './EditorPanel';
 import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
-import { description } from '~/lib/persistence';
-import { githubUsername } from '~/lib/stores/githubusername';
+import { uploadZipToS3 } from '~/lib/stores/s3';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -405,36 +406,11 @@ export const Workbench = memo(
                           }
 
                           workbenchStore.generateProjectZipFile().then((zipFile) => {
-                            async function retryPushToStageRepo(
-                              retries: number = 10,
-                              delay: number = 10000,
-                            ): Promise<void> {
-                              try {
-                                setIsPreviewing(true);
-                                await workbenchStore.pushToStageRepo(
-                                  projectName,
-                                  commitMessage,
-                                  zipFile,
-                                  workbenchStore.chart,
-                                );
+                            uploadZipToS3(zipFile, 'cbi-sdlc-stage', `${projectName}.zip`)
+                              .finally(() => {
                                 setPreviewLink(`https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
-                                alert(`Success uploaded to: https://stage-${projectName}.sbx.sdlc.app.cbrands.com`);
                                 setIsPreviewing(false);
-                              } catch (error) {
-                                if (retries > 0) {
-                                  console.error(`Error uploading, retrying in ${delay}ms...`, error);
-                                  setTimeout(() => {
-                                    retryPushToStageRepo(retries - 1, delay);
-                                  }, delay);
-                                } else {
-                                  alert('There was an error uploading...');
-                                  console.error('Failed to upload after multiple retries:', error);
-                                  setIsPreviewing(false);
-                                }
-                              }
-                            }
-
-                            retryPushToStageRepo();
+                              });
                           });
                         }}
                       >
@@ -450,7 +426,7 @@ export const Workbench = memo(
                             console.log(`LINK: ${previewLink}`);
                           }}
                         >
-                          <div className="link-simple" />
+                          <div className="i-ph:link" />
                           Link
                         </PanelHeaderButton>
                       )}

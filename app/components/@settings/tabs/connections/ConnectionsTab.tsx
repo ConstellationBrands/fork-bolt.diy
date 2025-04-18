@@ -153,12 +153,12 @@ export default function ConnectionsTab() {
         <Suspense fallback={<LoadingFallback />}>
           <GitHubConnection />
         </Suspense>
-        <Suspense fallback={<LoadingFallback />}>
-          <NetlifyConnection />
-        </Suspense>
-        <Suspense fallback={<LoadingFallback />}>
-          <VercelConnection />
-        </Suspense>
+        {/*<Suspense fallback={<LoadingFallback />}>*/}
+        {/*  <NetlifyConnection />*/}
+        {/*</Suspense>*/}
+        {/*<Suspense fallback={<LoadingFallback />}>*/}
+        {/*  <VercelConnection />*/}
+        {/*</Suspense>*/}
       </div>
 
       {/* Additional help text */}

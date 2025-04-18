@@ -19,7 +19,6 @@ import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import { Buffer } from 'node:buffer';
 import * as yaml from 'js-yaml';
-import { tokenStore } from '~/lib/stores/token';
 import type { ActionAlert, SupabaseAlert } from '~/types/actions';
 
 const { saveAs } = fileSaver;
@@ -663,7 +662,7 @@ export class WorkbenchStore {
   async pushToGitHub(repoName: string, otherUsername: string, commitMessage?: string, githubUsername?: string) {
     try {
       // Use cookies if username and token are not provided
-      const githubToken = tokenStore.value;
+      const githubToken = Cookies.get('githubToken');
       const owner = githubUsername;
 
       if (!githubToken || !owner) {
@@ -807,140 +806,6 @@ export class WorkbenchStore {
     }
   }
 
-  async pushToStageRepo(projectName: string, commitMessage: string, content: string, chart: string) {
-    try {
-      const githubToken = tokenStore.value;
-      const owner = 'ConstellationBrands';
-
-      console.log(`OWNER: ${owner}`);
-
-      if (!owner) {
-        throw new Error('GitHub token or username is not set in cookies or provided.');
-      }
-
-      const octokit = new Octokit({ auth: githubToken });
-
-      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
-
-      try {
-        const resp = await octokit.repos.get({ owner, repo: 'stage-repo' });
-        repo = resp.data;
-        console.log(`REPO: ${repo}`);
-      } catch (error) {
-        console.log('Repo not found' + error);
-        throw error;
-      }
-
-      const chartYamlData = {
-        apiVersion: 'v2',
-        name: projectName,
-        description: 'A Helm chart for Kubernetes',
-        version: '0.1.0',
-        appVersion: '1.0',
-
-        dependencies: [
-          {
-            name: chart,
-            version: '0.1.0',
-            repository: `file://../charts/${chart}`,
-          },
-        ],
-      };
-
-      const chartYamlString = yaml.dump(chartYamlData);
-
-      const chartYamlBlob = await octokit.git.createBlob({
-        owner: repo.owner.login,
-        repo: repo.name,
-        content: Buffer.from(chartYamlString).toString('base64'),
-        encoding: 'base64',
-      });
-
-      const configmapYamlString = `
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Release.Name }}-src
-data:
-  app.zip.txt: |
-{{ .Files.Get "files/app.zip" | b64enc | nindent 4 }}
-      `;
-
-      // const configmapYamlString = yaml.dump(configmapYamlData);
-
-      const configmapYamlBlob = await octokit.git.createBlob({
-        owner: repo.owner.login,
-        repo: repo.name,
-        content: Buffer.from(configmapYamlString).toString('base64'),
-        encoding: 'base64',
-      });
-
-      const zipBlob = await octokit.git.createBlob({
-        owner: repo.owner.login,
-        repo: repo.name,
-        content,
-        encoding: 'base64',
-      });
-
-      const blobs = [
-        { path: `${projectName}/Chart.yaml`, sha: chartYamlBlob.data.sha },
-        { path: `${projectName}/files/app.zip`, sha: zipBlob.data.sha },
-        { path: `${projectName}/templates/configmap.yaml`, sha: configmapYamlBlob.data.sha },
-      ];
-
-      const validBlobs = blobs.filter(Boolean);
-
-      if (validBlobs.length == 0) {
-        throw new Error('No valid files to push');
-      }
-
-      const { data: ref } = await octokit.git.getRef({
-        owner: repo.owner.login,
-        repo: repo.name,
-        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
-      });
-      const latestCommitSha = ref.object.sha;
-      console.log(`COMMIT ${latestCommitSha}`);
-
-      // Create a new tree
-      const { data: newTree } = await octokit.git.createTree({
-        owner: repo.owner.login,
-        repo: repo.name,
-        base_tree: latestCommitSha,
-        tree: validBlobs.map((blob) => ({
-          path: blob!.path,
-          mode: '100644',
-          type: 'blob',
-          sha: blob!.sha,
-        })),
-      });
-
-      // Create a new commit
-      const { data: newCommit } = await octokit.git.createCommit({
-        owner: repo.owner.login,
-        repo: repo.name,
-        message: commitMessage,
-        tree: newTree.sha,
-        parents: [latestCommitSha],
-        author: {
-          name: 'bolt-ddp',
-          email: 'bolt@cbrands.com',
-        },
-      });
-
-      // Update the reference
-      await octokit.git.updateRef({
-        owner: repo.owner.login,
-        repo: repo.name,
-        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
-        sha: newCommit.sha,
-      });
-    } catch (error) {
-      console.error('Error pushing to Github', error);
-      throw error;
-    }
-  }
-
   async deployToDDP(
     repoName: string,
     branchName: string,
@@ -953,7 +818,8 @@ data:
 
     try {
       // Use cookies if username and token are not provided
-      const githubToken = ghToken || tokenStore.value;
+      // TODO USE TOKEN FROM SETTINGS
+      const githubToken = ghToken || Cookies.get('githubToken');
       const owner = githubUsername;
 
       console.log(`OWNER: ${owner}`);
@@ -1051,84 +917,6 @@ data:
     }
   }
 
-  async removeRepoFromStage(projectName: string) {
-    try {
-      const githubToken = tokenStore.value;
-      const owner = 'ConstellationBrands';
-
-      console.log('IN RemoveRepoFromStage')
-
-      if (!owner) {
-        throw new Error('GitHub token or username is not set in cookies or provided.');
-      }
-
-      const octokit = new Octokit({ auth: githubToken });
-
-      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
-
-      try {
-        const resp = await octokit.repos.get({ owner, repo: 'stage-repo' });
-        repo = resp.data;
-        console.log(`REPO: ${repo}`);
-      } catch (error) {
-        console.log('Repo not found' + error);
-        throw error;
-      }
-
-      const blobs = [{ path: `${projectName}`, sha: null }];
-
-      const validBlobs = blobs.filter(Boolean);
-
-      if (validBlobs.length == 0) {
-        throw new Error('No valid files to push');
-      }
-
-      const { data: ref } = await octokit.git.getRef({
-        owner: repo.owner.login,
-        repo: repo.name,
-        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
-      });
-      const latestCommitSha = ref.object.sha;
-      console.log(`COMMIT ${latestCommitSha}`);
-
-      // Create a new tree
-      const { data: newTree } = await octokit.git.createTree({
-        owner: repo.owner.login,
-        repo: repo.name,
-        base_tree: latestCommitSha,
-        tree: validBlobs.map((blob) => ({
-          path: blob!.path,
-          mode: '100644',
-          type: 'blob',
-          sha: blob!.sha,
-        })),
-      });
-
-      // Create a new commit
-      const { data: newCommit } = await octokit.git.createCommit({
-        owner: repo.owner.login,
-        repo: repo.name,
-        message: `removed ${projectName}`,
-        tree: newTree.sha,
-        parents: [latestCommitSha],
-        author: {
-          name: 'bolt-ddp',
-          email: 'bolt@cbrands.com',
-        },
-      });
-
-      // Update the reference
-      await octokit.git.updateRef({
-        owner: repo.owner.login,
-        repo: repo.name,
-        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
-        sha: newCommit.sha,
-      });
-    } catch (error) {
-      console.error('Error deleting preview environment', error);
-      throw error;
-    }
-  }
 }
 
 export const workbenchStore = new WorkbenchStore();

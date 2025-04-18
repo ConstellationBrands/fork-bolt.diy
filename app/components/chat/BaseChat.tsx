@@ -588,7 +588,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                           title="Model Settings"
                           className={classNames('transition-all flex items-center gap-1', {
                             'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent':
-                              isModelSettingsCollapsed,
+                            isModelSettingsCollapsed,
                             'bg-bolt-elements-item-backgroundDefault text-bolt-elements-item-contentDefault':
                               !isModelSettingsCollapsed,
                           })}

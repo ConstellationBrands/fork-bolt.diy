@@ -3,9 +3,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { logStore } from '~/lib/stores/logs';
 import { classNames } from '~/utils/classNames';
-import { tokenStore } from '~/lib/stores/token';
-import { connectionStore } from '~/lib/stores/connection';
-import { githubUsername } from '~/lib/stores/githubusername';
+import Cookies from 'js-cookie';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '~/components/ui/Collapsible';
 import { Button } from '~/components/ui/Button';
 
@@ -109,43 +107,80 @@ export default function GitHubConnection() {
 
   const fetchGithubUser = async (token: string) => {
     try {
-      setIsConnecting(true);
+      console.log('Fetching GitHub user with token:', token.substring(0, 5) + '...');
 
-      const response = await fetch('https://api.github.com/user', {
+      // Use server-side API endpoint instead of direct GitHub API call
+      const response = await fetch(`/api/system/git-info?action=getUser`, {
+        method: 'GET',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, // Include token in headers for validation
         },
       });
 
       if (!response.ok) {
-        throw new Error('Invalid token or unauthorized');
+        console.error('Error fetching GitHub user. Status:', response.status);
+        throw new Error(`Error: ${response.status}`);
       }
 
-      const data = (await response.json()) as GitHubUserResponse;
-      const newConnection: GitHubConnection = {
-        user: data,
-        token,
-        tokenType: connection.tokenType,
+      // Get rate limit information from headers
+      const rateLimit = {
+        limit: parseInt(response.headers.get('x-ratelimit-limit') || '0'),
+        remaining: parseInt(response.headers.get('x-ratelimit-remaining') || '0'),
+        reset: parseInt(response.headers.get('x-ratelimit-reset') || '0'),
       };
 
-      connectionStore.set(newConnection);
+      const data = await response.json();
+      console.log('GitHub user API response:', data);
 
-      tokenStore.set(token);
-      githubUsername.set(data.login);
+      const { user } = data as { user: GitHubUserResponse };
 
-      // Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
+      // Validate that we received a user object
+      if (!user || !user.login) {
+        console.error('Invalid user data received:', user);
+        throw new Error('Invalid user data received');
+      }
 
-      setConnection(newConnection);
+      // Use the response data
+      setConnection((prev) => ({
+        ...prev,
+        user,
+        token,
+        tokenType: tokenTypeRef.current,
+        rateLimit,
+      }));
 
-      // await fetchGitHubStats(token);
+      // Set cookies for client-side access
+      Cookies.set('githubUsername', user.login);
+      Cookies.set('githubToken', token);
+      Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
 
-      toast.success('Successfully connected to GitHub');
+      // Store connection details in localStorage
+      localStorage.setItem(
+        'github_connection',
+        JSON.stringify({
+          user,
+          token,
+          tokenType: tokenTypeRef.current,
+        }),
+      );
+
+      logStore.logInfo('Connected to GitHub', {
+        type: 'system',
+        message: `Connected to GitHub as ${user.login}`,
+      });
+
+      // Fetch additional GitHub stats
+      fetchGitHubStats(token);
     } catch (error) {
-      logStore.logError('Failed to authenticate with GitHub', { error });
-      toast.error('Failed to connect to GitHub');
-      setConnection({ user: null, token: '', tokenType: 'classic' });
-    } finally {
-      setIsConnecting(false);
+      console.error('Failed to fetch GitHub user:', error);
+      logStore.logError(`GitHub authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        type: 'system',
+        message: 'GitHub authentication failed',
+      });
+
+      toast.error(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error; // Rethrow to allow handling in the calling function
     }
   };
 
@@ -311,26 +346,77 @@ export default function GitHubConnection() {
   };
 
   useEffect(() => {
-    const savedConnection = connectionStore.value;
+    const loadSavedConnection = async () => {
+      setIsLoading(true);
 
-    if (savedConnection) {
-      const parsed = JSON.parse(savedConnection);
+      const savedConnection = localStorage.getItem('github_connection');
 
-      if (!parsed.tokenType) {
-        parsed.tokenType = 'classic';
+      if (savedConnection) {
+        try {
+          const parsed = JSON.parse(savedConnection);
+
+          if (!parsed.tokenType) {
+            parsed.tokenType = 'classic';
+          }
+
+          // Update the ref with the parsed token type
+          tokenTypeRef.current = parsed.tokenType;
+
+          // Set the connection
+          setConnection(parsed);
+
+          // If we have a token but no stats or incomplete stats, fetch them
+          if (
+            parsed.user &&
+            parsed.token &&
+            (!parsed.stats || !parsed.stats.repos || parsed.stats.repos.length === 0)
+          ) {
+            console.log('Fetching missing GitHub stats for saved connection');
+            await fetchGitHubStats(parsed.token);
+          }
+        } catch (error) {
+          console.error('Error parsing saved GitHub connection:', error);
+          localStorage.removeItem('github_connection');
+        }
+      } else {
+        // Check for environment variable token
+        const envToken = import.meta.env.VITE_GITHUB_ACCESS_TOKEN;
+
+        if (envToken) {
+          // Check if token type is specified in environment variables
+          const envTokenType = import.meta.env.VITE_GITHUB_TOKEN_TYPE;
+          console.log('Environment token type:', envTokenType);
+
+          const tokenType =
+            envTokenType === 'classic' || envTokenType === 'fine-grained'
+              ? (envTokenType as 'classic' | 'fine-grained')
+              : 'classic';
+
+          console.log('Using token type:', tokenType);
+
+          // Update both the state and the ref
+          tokenTypeRef.current = tokenType;
+          setConnection((prev) => ({
+            ...prev,
+            tokenType,
+          }));
+
+          try {
+            // Fetch user data with the environment token
+            await fetchGithubUser(envToken);
+          } catch (error) {
+            console.error('Failed to connect with environment token:', error);
+          }
+        }
       }
 
-      setConnection(parsed);
+      setIsLoading(false);
+    };
 
-      if (parsed.user && parsed.token) {
-        fetchGitHubStats(parsed.token);
-      }
-    } else if (import.meta.env.VITE_GITHUB_ACCESS_TOKEN) {
-      fetchGithubUser(import.meta.env.VITE_GITHUB_ACCESS_TOKEN);
-    }
-
-    setIsLoading(false);
+    loadSavedConnection();
   }, []);
+
+  // Ensure cookies are updated when connection changes
   useEffect(() => {
     if (!connection) {
       return;
@@ -339,11 +425,13 @@ export default function GitHubConnection() {
     const token = connection.token;
     const data = connection.user;
 
-    tokenStore.set(token);
+    if (token) {
+      Cookies.set('githubToken', token);
+      Cookies.set('git:github.com', JSON.stringify({ username: token, password: 'x-oauth-basic' }));
+    }
 
     if (data) {
-      //Cookies.set('githubUsername', data.login);
-      githubUsername.set(data.login);
+      Cookies.set('githubUsername', data.login);
     }
   }, [connection]);
 
@@ -432,7 +520,15 @@ export default function GitHubConnection() {
   };
 
   const handleDisconnect = () => {
-    connectionStore.set({ user: null, token: '', tokenType: 'classic' });
+    localStorage.removeItem('github_connection');
+
+    // Remove all GitHub-related cookies
+    Cookies.remove('githubToken');
+    Cookies.remove('githubUsername');
+    Cookies.remove('git:github.com');
+
+    // Reset the token type ref
+    tokenTypeRef.current = 'classic';
     setConnection({ user: null, token: '', tokenType: 'classic' });
     toast.success('Disconnected from GitHub');
   };
@@ -513,10 +609,10 @@ export default function GitHubConnection() {
               }`}
               className={classNames(
                 'w-full px-3 py-2 rounded-lg text-sm',
-                'bg-bolt-elements-background-depth-1 dark:bg-bolt-elements-background-depth-1',
-                'border border-bolt-elements-borderColor dark:border-bolt-elements-borderColor',
-                'text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary dark:placeholder-bolt-elements-textTertiary',
-                'focus:outline-none focus:ring-1 focus:ring-bolt-elements-item-contentAccent dark:focus:ring-bolt-elements-item-contentAccent',
+                'bg-[#F8F8F8] dark:bg-[#1A1A1A]',
+                'border border-[#E5E5E5] dark:border-[#333333]',
+                'text-bolt-elements-textPrimary placeholder-bolt-elements-textTertiary',
+                'focus:outline-none focus:ring-1 focus:ring-bolt-elements-borderColorActive',
                 'disabled:opacity-50',
               )}
             />
@@ -525,11 +621,10 @@ export default function GitHubConnection() {
                 href={`https://github.com/settings/tokens${connection.tokenType === 'fine-grained' ? '/beta' : '/new'}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-bolt-elements-link-text dark:text-bolt-elements-link-text hover:text-bolt-elements-link-textHover dark:hover:text-bolt-elements-link-textHover flex items-center gap-1"
+                className="text-bolt-elements-borderColorActive hover:underline inline-flex items-center gap-1"
               >
-                <div className="i-ph:key w-4 h-4" />
                 Get your token
-                <div className="i-ph:arrow-square-out w-3 h-3" />
+                <div className="i-ph:arrow-square-out w-4 h-4" />
               </a>
               <span className="mx-2">•</span>
               <span>
@@ -544,58 +639,48 @@ export default function GitHubConnection() {
 
         <div className="flex items-center justify-between">
           {!connection.user ? (
-            <Button
+            <button
               onClick={handleConnect}
               disabled={isConnecting || !connection.token}
-              variant="default"
-              className="flex items-center gap-2"
+              className={classNames(
+                'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
+                'bg-[#303030] text-white',
+                'hover:bg-[#5E41D0] hover:text-white',
+                'disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200',
+                'transform active:scale-95',
+              )}
             >
               {isConnecting ? (
                 <>
-                  <div className="i-ph:spinner-gap animate-spin w-4 h-4" />
+                  <div className="i-ph:spinner-gap animate-spin" />
                   Connecting...
                 </>
               ) : (
                 <>
-                  <div className="i-ph:github-logo w-4 h-4" />
+                  <div className="i-ph:plug-charging w-4 h-4" />
                   Connect
                 </>
               )}
-            </Button>
+            </button>
           ) : (
             <>
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-4">
-                  <Button
+                  <button
                     onClick={handleDisconnect}
-                    variant="destructive"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <div className="i-ph:sign-out w-4 h-4" />
-                    Disconnect
-                  </Button>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <div className="i-ph:check-circle w-4 h-4 text-bolt-elements-icon-success dark:text-bolt-elements-icon-success" />
-                      <span className="text-sm text-bolt-elements-textPrimary dark:text-bolt-elements-textPrimary">
-                        Connected to GitHub using{' '}
-                        <span className="text-bolt-elements-item-contentAccent dark:text-bolt-elements-item-contentAccent font-medium">
-                          {connection.tokenType === 'classic' ? 'PAT' : 'Fine-grained Token'}
-                        </span>
-                      </span>
-                    </div>
-                    {connection.rateLimit && (
-                      <div className="flex items-center gap-2 text-xs text-bolt-elements-textSecondary">
-                        <div className="i-ph:chart-line-up w-3.5 h-3.5 text-bolt-elements-icon-success" />
-                        <span>
-                          API Limit: {connection.rateLimit.remaining.toLocaleString()}/
-                          {connection.rateLimit.limit.toLocaleString()} • Resets in{' '}
-                          {Math.max(0, Math.floor((connection.rateLimit.reset * 1000 - Date.now()) / 60000))} min
-                        </span>
-                      </div>
+                    className={classNames(
+                      'px-4 py-2 rounded-lg text-sm flex items-center gap-2',
+                      'bg-red-500 text-white',
+                      'hover:bg-red-600',
                     )}
-                  </div>
+                  >
+                    <div className="i-ph:plug w-4 h-4" />
+                    Disconnect
+                  </button>
+                  <span className="text-sm text-bolt-elements-textSecondary flex items-center gap-1">
+                    <div className="i-ph:check-circle w-4 h-4 text-green-500" />
+                    Connected to GitHub
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -608,7 +693,7 @@ export default function GitHubConnection() {
                   </Button>
                   <Button
                     onClick={() => {
-                      // fetchGitHubStats(connection.token);
+                      fetchGitHubStats(connection.token);
                       updateRateLimits(connection.token);
                     }}
                     disabled={isFetchingStats}

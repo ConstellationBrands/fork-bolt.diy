@@ -13,9 +13,6 @@ interface HeaderActionButtonsProps {}
 export function HeaderActionButtons({}: HeaderActionButtonsProps) {
   const showWorkbench = useStore(workbenchStore.showWorkbench);
   const { showChat } = useStore(chatStore);
-  const [activePreviewIndex] = useState(0);
-  const previews = useStore(workbenchStore.previews);
-  const activePreview = previews[activePreviewIndex];
   const [isDeploying, setIsDeploying] = useState(false);
   const [isDeployToDDPDialogOpen, setIsDeployToDDPDialogOpen] = useState(false);
   const isSmallViewport = useViewport(1024);
@@ -90,19 +87,19 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
               setIsLoading,
             ) => {
               try {
-                console.log(`TENANT2: ${tenantName}`);
-
                 async function retryDeployToDDP(
                   retries: number = 10,
                   delay: number = 10000,
                 ): Promise<string | undefined> {
                   try {
+                    setIsLoading(true);
                     await workbenchStore.deployToDDP(repoName, branchName, tenantName, environmentName, org, token);
                     console.log('Success on DeployToDDP');
-
+                    setShowSuccessDialog(true);
                     return `https://github.com/${org}/${repoName}`;
                   } catch (error) {
                     if (retries > 0) {
+                      setIsLoading(true);
                       console.error(`Error deploying to DDP, retrying in ${delay}ms...`, error);
                       setTimeout(() => retryDeployToDDP(retries - 1, delay), delay);
 
@@ -110,43 +107,14 @@ export function HeaderActionButtons({}: HeaderActionButtonsProps) {
                     } else {
                       console.error('Failed to deploy to DDP after multiple retries:', error);
                       toast.error('Failed to deploy to DDP');
-
+                      setIsLoading(false);
                       return undefined;
                     }
                   }
                 }
-
-                console.log('Before retryRemoveRepo');
-
-                async function retryRemoveRepo(retries: number = 10, delay: number = 10000): Promise<void> {
-                  try {
-                    console.log('Inside retryRemoveRepo');
-                    await workbenchStore.removeRepoFromStage(workbenchStore.projectName);
-                    toast.success('Successfully deleted preview environment');
-                    setShowSuccessDialog(true);
-                    setIsLoading(false);
-                  } catch (error) {
-                    if (retries > 0) {
-                      console.error(`Error removing repo, retrying in ${delay}ms...`, error);
-                      setTimeout(() => retryRemoveRepo(retries - 1, delay), delay);
-                    } else {
-                      console.error('Failed to remove repo after multiple retries:', error);
-                      toast.error('Failed to remove preview environment after deploy');
-                      setShowSuccessDialog(false);
-                      setIsLoading(false);
-                    }
-                  }
-                }
-
                 const repoUrl = await retryDeployToDDP();
 
                 console.log(`URL: ${repoUrl}`);
-
-                if (repoUrl) {
-                  await retryRemoveRepo();
-
-                  return repoUrl;
-                }
               } catch (error) {
                 console.error(error);
                 toast.error('Failed to push to Github');
