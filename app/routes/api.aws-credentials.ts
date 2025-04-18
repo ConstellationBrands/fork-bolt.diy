@@ -47,6 +47,7 @@ export const action: ActionFunction = async ({ request, context }) => {
 
     return { success: true };
   } catch (error) {
+    console.log('ERROR', error);
     return { success: false };
   }
 };
