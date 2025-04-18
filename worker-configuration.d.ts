@@ -23,7 +23,8 @@ interface Env {
   IDSGPT_API_BASE_URL: string;
   IDSGPT_API_KEY: string;
 
-  TOKEN_SERVICE_NAME: string;
+  AWS_ACCESS_KEY: string;
+  AWS_SECRET_ACCESS_KEY: string;
   ARGO_WORKFLOW_ENDPOINT: string;
   BUCKET_NAME: string;
 }
