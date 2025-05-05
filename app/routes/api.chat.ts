@@ -2,7 +2,7 @@ import { type ActionFunctionArgs } from '@remix-run/cloudflare';
 import { createDataStream, generateId } from 'ai';
 import { MAX_RESPONSE_SEGMENTS, MAX_TOKENS, type FileMap } from '~/lib/.server/llm/constants';
 import { CONTINUE_PROMPT } from '~/lib/common/prompts/prompts';
-import { streamText, type Messages, type StreamingOptions } from '~/lib/.server/llm/stream-text';
+import { streamText, type Messages, type StreamingOptions } from '~/lib/.server/llm/custom-stream-text';
 import SwitchableStream from '~/lib/.server/llm/switchable-stream';
 import type { IProviderSetting } from '~/types/model';
 import { createScopedLogger } from '~/utils/logger';
@@ -53,6 +53,12 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
   }>();
 
   const cookieHeader = request.headers.get('Cookie');
+  const traceParentHeader = request.headers.get('traceparent');
+  const traceStateHeader = request.headers.get('tracestate');
+  const requestIdHeader = request.headers.get('x-request-id');
+  console.log("-------------  Request headers ------------- ");
+  console.log(request.headers);
+
   const apiKeys = JSON.parse(parseCookies(cookieHeader || '').apiKeys || '{}');
   const providerSettings: Record<string, IProviderSetting> = JSON.parse(
     parseCookies(cookieHeader || '').providers || '{}',
@@ -250,6 +256,9 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               contextFiles: filteredFiles,
               summary,
               messageSliceId,
+              traceParentHeader,
+              traceStateHeader,
+              requestIdHeader
             });
 
             result.mergeIntoDataStream(dataStream);
@@ -289,6 +298,9 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           contextFiles: filteredFiles,
           summary,
           messageSliceId,
+          traceParentHeader,
+          traceStateHeader,
+          requestIdHeader
         });
 
         (async () => {

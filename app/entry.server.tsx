@@ -72,6 +72,7 @@ export default async function handleRequest(
 
   responseHeaders.set('Cross-Origin-Embedder-Policy', 'require-corp');
   responseHeaders.set('Cross-Origin-Opener-Policy', 'same-origin');
+  responseHeaders.set('Access-Control-Expose-Headers', 'traceparent, tracestate, x-request-id');
 
   return new Response(body, {
     headers: responseHeaders,
