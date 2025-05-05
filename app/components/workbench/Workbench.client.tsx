@@ -27,6 +27,7 @@ import useViewport from '~/lib/hooks';
 import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/components/PushToGitHubDialog';
 import { uploadZipToS3 } from '~/lib/stores/s3';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { usePreviewStore } from '~/lib/stores/previews';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -93,8 +94,8 @@ const FileModifiedDropdown = memo(
         <Popover className="relative">
           {({ open }: { open: boolean }) => (
             <>
-              <Popover.Button className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-bolt-elements-background-depth-2 hover:bg-bolt-elements-background-depth-3 transition-colors text-bolt-elements-textPrimary border border-bolt-elements-borderColor">
-                <span className="font-medium">File Changes</span>
+              <Popover.Button className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-bolt-elements-background-depth-2 hover:bg-bolt-elements-background-depth-3 transition-colors text-bolt-elements-item-contentDefault">
+                <span>File Changes</span>
                 {hasChanges && (
                   <span className="w-5 h-5 rounded-full bg-accent-500/20 text-accent-500 text-xs flex items-center justify-center border border-accent-500/30">
                     {modifiedFiles.length}
@@ -327,9 +328,16 @@ export const Workbench = memo(
     }, []);
 
     const onFileSave = useCallback(() => {
-      workbenchStore.saveCurrentDocument().catch(() => {
-        toast.error('Failed to update file content');
-      });
+      workbenchStore
+        .saveCurrentDocument()
+        .then(() => {
+          // Explicitly refresh all previews after a file save
+          const previewStore = usePreviewStore();
+          previewStore.refreshAllPreviews();
+        })
+        .catch(() => {
+          toast.error('Failed to update file content');
+        });
     }, []);
 
     const onFileReset = useCallback(() => {

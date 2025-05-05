@@ -85,13 +85,13 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
         let confirmMessage = `Repository "${repoName}" already exists. Do you want to update it? This will add or modify files in the repository.`;
 
         // Add visibility change warning if needed
-        if (existingRepo.private !== isPrivate) {
-          const visibilityChange = isPrivate
-            ? 'This will also change the repository from public to private.'
-            : 'This will also change the repository from private to public.';
-
-          confirmMessage += `\n\n${visibilityChange}`;
-        }
+        // if (existingRepo.private !== isPrivate) {
+        //   const visibilityChange = isPrivate
+        //     ? 'This will also change the repository from public to private.'
+        //     : 'This will also change the repository from private to public.';
+        //
+        //   confirmMessage += `\n\n${visibilityChange}`;
+        // }
 
         const confirmOverwrite = window.confirm(confirmMessage);
 
@@ -346,7 +346,6 @@ export function PushToGitHubDialog({ isOpen, onClose, onPush }: PushToGitHubDial
                       required
                     />
                   </div>
-
                   <div className="space-y-2">
                     <label htmlFor="githuUsername" className="text-sm text-gray-600 dark:text-gray-400">
                       Github Username
