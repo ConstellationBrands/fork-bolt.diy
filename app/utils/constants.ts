@@ -129,4 +129,12 @@ export const STARTER_TEMPLATES: Template[] = [
     tags: ['angular', 'typescript', 'frontend', 'spa'],
     icon: 'i-bolt:angular',
   },
+  {
+    name: 'Jump',
+    label: 'Jump Home Dashboard',
+    description: 'A modern and simple home page and real-time status page for your server',
+    githubRepo: 'daledavies/jump',
+    tags: ['jump', 'dashboard', 'frontend', 'status'],
+    icon: 'i-bolt:stars',
+  }
 ];
