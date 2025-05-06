@@ -136,13 +136,5 @@ export const STARTER_TEMPLATES: Template[] = [
     githubRepo: 'packituz-gttz/blog-tutorial-demo',
     tags: ['starlight', 'astro', 'frontend', 'blog'],
     icon: 'i-bolt:astro',
-  },
-  {
-    name: 'React',
-    label: 'React',
-    description: 'React personal website',
-    githubRepo: 'RubenML/react-personal-website',
-    tags: ['react', 'frontend', 'website'],
-    icon: 'i-bolt:react',
-  },
+  }
 ];
