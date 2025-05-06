@@ -130,11 +130,19 @@ export const STARTER_TEMPLATES: Template[] = [
   //   icon: 'i-bolt:angular',
   // },
   {
-    name: 'Jump',
-    label: 'Jump Home Dashboard',
-    description: 'A modern and simple home page and real-time status page for your server',
-    githubRepo: 'daledavies/jump',
-    tags: ['jump', 'dashboard', 'frontend', 'status'],
-    icon: 'i-bolt:stars',
-  }
+    name: 'Astro Starlight',
+    label: 'Astro + Starlight',
+    description: 'Astro Blog starter template for blog sites',
+    githubRepo: 'packituz-gttz/blog-tutorial-demo',
+    tags: ['starlight', 'astro', 'frontend', 'blog'],
+    icon: 'i-bolt:astro',
+  },
+  {
+    name: 'React',
+    label: 'React',
+    description: 'React personal website',
+    githubRepo: 'RubenML/react-personal-website',
+    tags: ['react', 'frontend', 'website'],
+    icon: 'i-bolt:react',
+  },
 ];
