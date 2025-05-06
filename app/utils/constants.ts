@@ -130,8 +130,8 @@ export const STARTER_TEMPLATES: Template[] = [
   //   icon: 'i-bolt:angular',
   // },
   {
-    name: 'Astro Starlight',
-    label: 'Astro + Starlight',
+    name: 'Astro',
+    label: 'Astro',
     description: 'Astro Blog starter template for blog sites',
     githubRepo: 'packituz-gttz/blog-tutorial-demo',
     tags: ['starlight', 'astro', 'frontend', 'blog'],
