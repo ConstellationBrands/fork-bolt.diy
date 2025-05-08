@@ -56,7 +56,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
   const traceParentHeader = request.headers.get('traceparent');
   const traceStateHeader = request.headers.get('tracestate');
   const requestIdHeader = request.headers.get('x-request-id');
-  console.log("-------------  Request headers ------------- ");
+  console.log("++++++++  Request headers ++++++++++");
   console.log(request.headers);
 
   const apiKeys = JSON.parse(parseCookies(cookieHeader || '').apiKeys || '{}');

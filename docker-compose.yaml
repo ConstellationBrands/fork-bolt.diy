@@ -27,8 +27,9 @@ services:
       - VITE_LOG_LEVEL=${VITE_LOG_LEVEL:-debug}
       - DEFAULT_NUM_CTX=${DEFAULT_NUM_CTX:-32768}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_USER=${GITHUB_USER}
       - RUNNING_IN_DOCKER=true
-      - IDSGPT_API_BASE_URL=https://oai.app.cbrands.com/
+      - IDSGPT_API_BASE_URL=${IDSGPT_API_BASE_URL}
       - IDSGPT_API_KEY=NotNeeded
     extra_hosts:
       - 'host.docker.internal:host-gateway'

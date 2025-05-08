@@ -42,15 +42,17 @@ const EXPOSE_HEADERS = [
 ];
 
 // Handle all HTTP methods
-export async function action({ request, params }: ActionFunctionArgs) {
-  return handleProxyRequest(request, params['*']);
+export async function action({ request, params, context }: ActionFunctionArgs) {
+  console.log('TOKEN ACTION', context.cloudflare.env.GITHUB_TOKEN)
+  return handleProxyRequest(request, params['*'], context);
 }
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  return handleProxyRequest(request, params['*']);
+export async function loader({ request, params, context }: LoaderFunctionArgs) {
+  console.log('TOKEN LOADER', context.cloudflare.env.GITHUB_TOKEN)
+  return handleProxyRequest(request, params['*'], context);
 }
 
-async function handleProxyRequest(request: Request, path: string | undefined) {
+async function handleProxyRequest(request: Request, path: string | undefined, context) {
   try {
     if (!path) {
       return json({ error: 'Invalid proxy URL format' }, { status: 400 });
@@ -102,6 +104,11 @@ async function handleProxyRequest(request: Request, path: string | undefined) {
     // Set Git user agent if not already present
     if (!headers.has('user-agent') || !headers.get('user-agent')?.startsWith('git/')) {
       headers.set('User-Agent', 'git/@isomorphic-git/cors-proxy');
+    }
+
+    if (context.cloudflare.env.GITHUB_USER && context.cloudflare.env.GITHUB_TOKEN) {
+      const basicAuth = btoa(`${context.cloudflare.env.GITHUB_USER}:${context.cloudflare.env.GITHUB_TOKEN}`);
+      headers.set('Authorization', `Basic ${basicAuth}`);
     }
 
     console.log('Request headers:', Object.fromEntries(headers.entries()));

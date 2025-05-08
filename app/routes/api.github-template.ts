@@ -1,7 +1,7 @@
 import { json } from '@remix-run/cloudflare';
 import JSZip from 'jszip';
 
-export async function loader({ request }: { request: Request }) {
+export async function loader({ request, context }: { request: Request, context }) {
   const url = new URL(request.url);
   const repo = url.searchParams.get('repo');
 
@@ -12,16 +12,13 @@ export async function loader({ request }: { request: Request }) {
   try {
     const baseUrl = 'https://api.github.com';
 
-
-    console.log(`${baseUrl}/repos/${repo}/releases/latest`);
-
     // Get the latest release
     const releaseResponse = await fetch(`${baseUrl}/repos/${repo}/releases/latest`, {
       headers: {
         Accept: 'application/vnd.github.v3+json',
         'User-Agent': 'bolt.diy2-github-template-fetcher',
         // Add GitHub token if available in environment variables
-        ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+        ...(context.cloudflare.env.GITHUB_TOKEN ? { Authorization: `Bearer ${context.cloudflare.env.GITHUB_TOKEN}` } : {}),
       },
     });
 
@@ -36,7 +33,7 @@ export async function loader({ request }: { request: Request }) {
     const zipResponse = await fetch(zipballUrl, {
       headers: {
         'User-Agent': 'bolt.diy2-github-template-fetcher',
-        ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+        ...(context.cloudflare.env.GITHUB_TOKEN ? { Authorization: `Bearer ${context.cloudflare.env.GITHUB_TOKEN}` } : {}),
       },
     });
 

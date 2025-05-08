@@ -134,7 +134,7 @@ export const STARTER_TEMPLATES: Template[] = [
     label: 'Astro',
     description: 'Astro Blog starter template for blog sites',
     githubRepo: 'packituz-gttz/blog-tutorial-demo',
-    tags: ['starlight', 'astro', 'frontend', 'blog'],
+    tags: ['astro', 'frontend', 'blog'],
     icon: 'i-bolt:astro',
   }
 ];
