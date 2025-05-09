@@ -12,7 +12,11 @@ const EXAMPLE_PROMPTS = [
     fullPrompt: `Let's build a modern shopping website together. Here's what we need
     Project Setup
 
-      * Create a new folder called shopping-site with:
+    IMPORTANT: Don't generate Vercel or Netlify related files for integration.
+    IMPORTANT: Don't generate git related files.
+
+
+      * Create a project with:
         * README.md (explaining how to run the project)
         * package.json (with React + Tailwind CSS)
         * Clean folder structure (components/, pages/, styles/)
@@ -42,6 +46,7 @@ const EXAMPLE_PROMPTS = [
 
      Start by creating the basic structure and homepage.
      ULTRA IMPORTANT: Check with me before adding complex features.
+
     `
   },
 ];
