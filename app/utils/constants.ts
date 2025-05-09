@@ -136,5 +136,5 @@ export const STARTER_TEMPLATES: Template[] = [
     githubRepo: 'packituz-gttz/blog-tutorial-demo',
     tags: ['astro', 'frontend', 'blog'],
     icon: 'i-bolt:astro',
-  }
+  },
 ];
