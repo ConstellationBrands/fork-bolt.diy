@@ -702,6 +702,6 @@ Here are some examples of correct usage of artifacts:
 `;
 
 export const CONTINUE_PROMPT = stripIndents`
-  Continue your prior response. IMPORTANT: Immediately begin from where you left off without any interruptions.
-  Do not repeat any content, including artifact and action tags.
+  Continue your prior response.
+  IMPORTANT: Start with action tags. Fix the file if it's truncated
 `;
