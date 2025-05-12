@@ -1,6 +1,7 @@
 import { getSystemPrompt } from './prompts/prompts';
 import optimized from './prompts/optimized';
 import { getFineTunedPrompt } from './prompts/new-prompt';
+import boltNew from '~/lib/common/prompts/bolt-new';
 
 export interface PromptOptions {
   cwd: string;
@@ -39,6 +40,11 @@ export class PromptLibrary {
       label: 'Optimized Prompt (experimental)',
       description: 'an Experimental version of the prompt for lower token usage',
       get: (options) => optimized(options),
+    },
+    bolt_new: {
+      label: 'Bolt New',
+      description: 'Bolt new system Prompt',
+      get: (options) => boltNew(options),
     },
   };
   static getList() {
