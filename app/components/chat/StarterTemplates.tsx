@@ -26,9 +26,11 @@ const StarterTemplates: React.FC = () => {
       <span className="text-sm text-gray-500">or start a blank app with your favorite stack</span>
       <div className="flex justify-center">
         <div className="flex flex-wrap justify-center items-center gap-4 max-w-sm">
-          {STARTER_TEMPLATES.map((template) => (
-            <FrameworkLink key={template.name} template={template} />
-          ))}
+          {STARTER_TEMPLATES.map((template) => {
+            if (template.visible) {
+              return  <FrameworkLink key={template.name} template={template} />
+            }
+          })}
         </div>
       </div>
     </div>
