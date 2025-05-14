@@ -43,7 +43,7 @@ export default class IDSGPTProvider extends BaseProvider {
       name: model.id,
       label: model.id,
       provider: this.name,
-      maxTokenAllowed: 64000,
+      maxTokenAllowed: 60000,
     }));
   }
 
