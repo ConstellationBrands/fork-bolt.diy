@@ -123,6 +123,7 @@ export function getOpenAILikeModel(baseURL: string, apiKey: OptionalApiKey, mode
   const openai = createOpenAI({
     baseURL,
     apiKey,
+    headers: { 'anthropic-beta': 'output-128k-2025-02-19' },
   });
 
   return openai(model);
