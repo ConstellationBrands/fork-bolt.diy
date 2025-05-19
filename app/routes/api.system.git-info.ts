@@ -119,6 +119,7 @@ export const loader: LoaderFunction = async ({ request, context }: LoaderFunctio
         const response = await fetch('https://api.github.com/user', {
           headers: {
             Accept: 'application/vnd.github.v3+json',
+            'User-Agent': 'bolt.diy2-github-template-fetcher',
             Authorization: `Bearer ${token}`,
           },
         });

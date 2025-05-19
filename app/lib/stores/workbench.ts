@@ -18,8 +18,7 @@ import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import { Buffer } from 'node:buffer';
-import * as yaml from 'js-yaml';
-import type { ActionAlert, SupabaseAlert } from '~/types/actions';
+import type { ActionAlert, DeployAlert, SupabaseAlert } from '~/types/actions';
 
 const { saveAs } = fileSaver;
 
@@ -51,9 +50,11 @@ export class WorkbenchStore {
   currentView: WritableAtom<WorkbenchViewType> = import.meta.hot?.data.currentView ?? atom('code');
   unsavedFiles: WritableAtom<Set<string>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<string>());
   actionAlert: WritableAtom<ActionAlert | undefined> =
-    import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
+    import.meta.hot?.data.actionAlert ?? atom<ActionAlert | undefined>(undefined);
   supabaseAlert: WritableAtom<SupabaseAlert | undefined> =
-    import.meta.hot?.data.unsavedFiles ?? atom<ActionAlert | undefined>(undefined);
+    import.meta.hot?.data.supabaseAlert ?? atom<SupabaseAlert | undefined>(undefined);
+  deployAlert: WritableAtom<DeployAlert | undefined> =
+    import.meta.hot?.data.deployAlert ?? atom<DeployAlert | undefined>(undefined);
   modifiedFiles = new Set<string>();
   artifactIdList: string[] = [];
   #globalExecutionQueue = Promise.resolve();
@@ -254,6 +255,12 @@ export class WorkbenchStore {
       return;
     }
 
+    /*
+     * For scoped locks, we would need to implement diff checking here
+     * to determine if the user is modifying existing code or just adding new code
+     * This is a more complex feature that would be implemented in a future update
+     */
+
     await this.#filesStore.saveFile(filePath, document.value);
 
     const newUnsavedFiles = new Set(this.unsavedFiles.get());
@@ -305,6 +312,60 @@ export class WorkbenchStore {
 
   resetAllFileModifications() {
     this.#filesStore.resetFileModifications();
+  }
+
+  /**
+   * Lock a file to prevent edits
+   * @param filePath Path to the file to lock
+   * @returns True if the file was successfully locked
+   */
+  lockFile(filePath: string) {
+    return this.#filesStore.lockFile(filePath);
+  }
+
+  /**
+   * Lock a folder and all its contents to prevent edits
+   * @param folderPath Path to the folder to lock
+   * @returns True if the folder was successfully locked
+   */
+  lockFolder(folderPath: string) {
+    return this.#filesStore.lockFolder(folderPath);
+  }
+
+  /**
+   * Unlock a file to allow edits
+   * @param filePath Path to the file to unlock
+   * @returns True if the file was successfully unlocked
+   */
+  unlockFile(filePath: string) {
+    return this.#filesStore.unlockFile(filePath);
+  }
+
+  /**
+   * Unlock a folder and all its contents to allow edits
+   * @param folderPath Path to the folder to unlock
+   * @returns True if the folder was successfully unlocked
+   */
+  unlockFolder(folderPath: string) {
+    return this.#filesStore.unlockFolder(folderPath);
+  }
+
+  /**
+   * Check if a file is locked
+   * @param filePath Path to the file to check
+   * @returns Object with locked status, lock mode, and what caused the lock
+   */
+  isFileLocked(filePath: string) {
+    return this.#filesStore.isFileLocked(filePath);
+  }
+
+  /**
+   * Check if a folder is locked
+   * @param folderPath Path to the folder to check
+   * @returns Object with locked status, lock mode, and what caused the lock
+   */
+  isFolderLocked(folderPath: string) {
+    return this.#filesStore.isFolderLocked(folderPath);
   }
 
   async createFile(filePath: string, content: string | Uint8Array = '') {
@@ -520,6 +581,12 @@ export class WorkbenchStore {
     if (data.action.type === 'file') {
       const wc = await webcontainer;
       const fullPath = path.join(wc.workdir, data.action.filePath);
+
+      /*
+       * For scoped locks, we would need to implement diff checking here
+       * to determine if the AI is modifying existing code or just adding new code
+       * This is a more complex feature that would be implemented in a future update
+       */
 
       if (this.selectedFile.value !== fullPath) {
         this.setSelectedFile(fullPath);

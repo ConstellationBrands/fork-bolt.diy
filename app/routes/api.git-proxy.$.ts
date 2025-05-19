@@ -17,6 +17,7 @@ const ALLOW_HEADERS = [
   'referer',
   'user-agent',
   'x-authorization',
+  'authorization',
   'x-http-method-override',
   'x-requested-with',
 ];
@@ -43,12 +44,10 @@ const EXPOSE_HEADERS = [
 
 // Handle all HTTP methods
 export async function action({ request, params, context }: ActionFunctionArgs) {
-  console.log('TOKEN ACTION', context.cloudflare.env.GITHUB_TOKEN)
   return handleProxyRequest(request, params['*'], context);
 }
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
-  console.log('TOKEN LOADER', context.cloudflare.env.GITHUB_TOKEN)
   return handleProxyRequest(request, params['*'], context);
 }
 
