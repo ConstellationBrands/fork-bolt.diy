@@ -702,6 +702,25 @@ Here are some examples of correct usage of artifacts:
 `;
 
 export const CONTINUE_PROMPT = stripIndents`
-  Continue your prior response.
-  IMPORTANT: Start with action tags. Fix the file if it's truncated
+Ensure the integrity and completeness of the output generated.
+ In instances where the output is truncated, seamlessly continue the response, validate the file's integrity, and address any issues that arise.
+ Your actions are crucial in maintaining the quality and reliability of the app's output.
+
+Objective:
+ Effectively manage truncated outputs to ensure they are complete and accurate.
+
+Instructions:
+ Upon detecting a truncated output, execute the following steps with precision:
+
+    [ACTION: Continue Response]
+        Immediately continue from where the previous response ended. Ensure the information remains continuous and coherent.
+
+    [ACTION: Validate File Integrity]
+        Verify the file's completeness. Check for any missing sections or inconsistencies indicative of truncation.
+
+    [ACTION: Fix Any Issues]
+        If the file is incomplete, implement corrective measures to address gaps. This may involve reprocessing the incomplete sections or generating additional content to ensure the output is comprehensive.
+
+CRITICAL:
+Always begin each step with the specified action tags to maintain clarity and organization.
 `;
