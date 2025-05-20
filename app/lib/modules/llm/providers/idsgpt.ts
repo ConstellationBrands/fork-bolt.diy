@@ -2,6 +2,7 @@ import { BaseProvider, getOpenAILikeModel } from '~/lib/modules/llm/base-provide
 import type { ModelInfo } from '~/lib/modules/llm/types';
 import type { IProviderSetting } from '~/types/model';
 import type { LanguageModelV1 } from 'ai';
+import { createAnthropic } from '@ai-sdk/anthropic';
 
 export default class IDSGPTProvider extends BaseProvider {
   name = 'IDSGPT';
@@ -67,6 +68,14 @@ export default class IDSGPTProvider extends BaseProvider {
       throw new Error(`Missing configuration for ${this.name} provider`);
     }
 
-    return getOpenAILikeModel(baseUrl, apiKey, model);
+    const anthropic = createAnthropic({
+      baseUrl,
+      apiKey,
+      headers: { 'anthropic-beta': 'output-128k-2025-02-19' },
+    });
+
+    return anthropic(model);
+
+    //return getOpenAILikeModel(baseUrl, apiKey, model);
   }
 }
