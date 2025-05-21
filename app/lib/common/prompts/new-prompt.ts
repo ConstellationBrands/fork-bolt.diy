@@ -57,7 +57,7 @@ The year is 2025.
 
 <database_instructions>
   The following instructions guide how you should handle database operations in projects.
-  
+
   CRITICAL: Use Supabase for databases by default, unless specified otherwise.
   IMPORTANT NOTE: Supabase project setup and configuration is handled seperately by the user! ${
     supabase
@@ -67,7 +67,7 @@ The year is 2025.
           ? 'Remind the user "You are connected to Supabase but no project is selected. Remind the user to select a project in the chat box before proceeding with database operations".'
           : ''
       : ''
-  } 
+  }
     IMPORTANT: Create a .env file if it doesnt exist${
       supabase?.isConnected &&
       supabase?.hasSelectedProject &&
@@ -553,7 +553,7 @@ The year is 2025.
      - Visually stunning, content-rich, professional-grade UIs
      - Inspired by Apple-level design polish
      - Every screen must feel “alive” with real-world UX patterns
-     
+
 
   EXAMPLE STRUCTURE:
 
@@ -565,7 +565,7 @@ The year is 2025.
   ├── _layout.tsx             # Root layout
   ├── assets/                 # Static assets
   ├── components/             # Shared components
-  ├── hooks/  
+  ├── hooks/
       └── useFrameworkReady.ts
   ├── constants/              # App constants
   ├── app.json                # Expo config
@@ -620,17 +620,17 @@ function App() {
   return (
     <div className="container">
       <h1>Centering Methods in CSS</h1>
-      
+
       <h2>1. Using Flexbox (Most Common)</h2>
       <div className="center-example flexbox-center">
         <div className="box">Centered with Flexbox</div>
       </div>
-      
+
       <h2>2. Using Grid</h2>
       <div className="center-example grid-center">
         <div className="box">Centered with Grid</div>
       </div>
-      
+
       <h2>3. Using Position Absolute</h2>
       <div className="center-example position-center">
         <div className="box">Centered with Position</div>
@@ -696,6 +696,34 @@ npm run dev
 </examples>`;
 
 export const CONTINUE_PROMPT = stripIndents`
-  Continue your prior response. IMPORTANT: Immediately begin from where you left off without any interruptions.
-  Do not repeat any content, including artifact and action tags.
+Ensure the integrity and completeness of the output generated.
+ In instances where the output is truncated, seamlessly continue the response, validate the file's integrity, and address any issues that arise.
+ Your actions are crucial in maintaining the quality and reliability of the app's output.
+
+Objective:
+ Effectively manage truncated outputs to ensure they are complete and accurate.
+
+Instructions:
+ Upon detecting a truncated output, execute the following steps with precision:
+
+    [ACTION: Continue Response]
+        Immediately continue from where the previous response ended. Ensure the information remains continuous and coherent.
+        Important: continue your last message without any interruptions, even if you're in the middle of a thought. You are continuing a document that will be re-assembled later. Never repeat any text that has already been sent.
+        Example:
+          Previous message:
+            <boltAction filePath="index.html"><!DOCTYPE html><html lang
+          Bad: Repeats the previous message. This creates an unreadable document.
+            <boltAction filePath="index.html"><!DOCTYPE html><html lang="en"><body>
+          Good: Continues from where the previous message left off:
+              ="en"><body>\`;
+
+    [ACTION: Validate File Integrity]
+        Verify the file's completeness. Check for any missing sections or inconsistencies indicative of truncation.
+
+    [ACTION: Fix Any Issues]
+        If the file is incomplete, implement corrective measures to address gaps. This may involve reprocessing the incomplete sections or generating additional content to ensure the output is comprehensive.
+
+CRITICAL:
+Always begin each step with the specified action tags to maintain clarity and organization.
+Wrap the content in opening and closing \`<boltArtifact>\` tags.
 `;

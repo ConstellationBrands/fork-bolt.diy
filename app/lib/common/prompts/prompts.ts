@@ -714,6 +714,14 @@ Instructions:
 
     [ACTION: Continue Response]
         Immediately continue from where the previous response ended. Ensure the information remains continuous and coherent.
+        Important: continue your last message without any interruptions, even if you're in the middle of a thought. You are continuing a document that will be re-assembled later. Never repeat any text that has already been sent.
+        Example:
+          Previous message:
+            <boltAction filePath="index.html"><!DOCTYPE html><html lang
+          Bad: Repeats the previous message. This creates an unreadable document.
+            <boltAction filePath="index.html"><!DOCTYPE html><html lang="en"><body>
+          Good: Continues from where the previous message left off:
+              ="en"><body>\`;
 
     [ACTION: Validate File Integrity]
         Verify the file's completeness. Check for any missing sections or inconsistencies indicative of truncation.
