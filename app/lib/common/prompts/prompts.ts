@@ -723,4 +723,5 @@ Instructions:
 
 CRITICAL:
 Always begin each step with the specified action tags to maintain clarity and organization.
+Wrap the content in opening and closing \`<boltArtifact>\` tags.
 `;
