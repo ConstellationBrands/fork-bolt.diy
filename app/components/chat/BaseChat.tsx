@@ -217,6 +217,22 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     }, [providerList, provider]);
 
+    // Ensure current model matches current provider when model list updates
+    useEffect(() => {
+      if (modelList.length > 0 && provider && model && setModel) {
+        const currentModelProvider = modelList.find((m) => m.name === model)?.provider;
+        
+        if (currentModelProvider !== provider.name) {
+          // Current model doesn't belong to current provider, find first model for current provider
+          const firstModelForProvider = modelList.find((m) => m.provider === provider.name);
+          
+          if (firstModelForProvider) {
+            setModel(firstModelForProvider.name);
+          }
+        }
+      }
+    }, [modelList, provider?.name, model]);
+
     const onApiKeysChange = async (providerName: string, apiKey: string) => {
       const newApiKeys = { ...apiKeys, [providerName]: apiKey };
       setApiKeys(newApiKeys);
@@ -617,7 +633,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                           title="Model Settings"
                           className={classNames('transition-all flex items-center gap-1', {
                             'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent':
-                            isModelSettingsCollapsed,
+                              isModelSettingsCollapsed,
                             'bg-bolt-elements-item-backgroundDefault text-bolt-elements-item-contentDefault':
                               !isModelSettingsCollapsed,
                           })}

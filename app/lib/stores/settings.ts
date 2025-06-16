@@ -62,6 +62,24 @@ const PROVIDER_SETTINGS_KEY = 'provider_settings';
 // Add this helper function at the top of the file
 const isBrowser = typeof window !== 'undefined';
 
+// Helper function to check API key availability during provider initialization
+const checkProviderApiKey = async (providerName: string): Promise<{ isSet: boolean; source?: string }> => {
+  if (!isBrowser) {
+    return { isSet: false };
+  }
+
+  try {
+    const response = await fetch(`/api/check-env-key?provider=${encodeURIComponent(providerName)}`);
+    const data = (await response.json()) as { isSet: boolean; source?: string };
+
+    return data;
+  } catch (error) {
+    console.error(`Failed to check API key for ${providerName}:`, error);
+
+    return { isSet: false };
+  }
+};
+
 // Initialize provider settings from both localStorage and defaults
 const getInitialProviderSettings = (): ProviderSetting => {
   const initialSettings: ProviderSetting = {};
@@ -92,6 +110,30 @@ const getInitialProviderSettings = (): ProviderSetting => {
       } catch (error) {
         console.error('Error parsing saved provider settings:', error);
       }
+    } else {
+      // No saved settings, start background auto-configuration but return defaults for now
+      setTimeout(async () => {
+        const enabledProviders: string[] = [];
+        const updatedSettings = { ...initialSettings };
+
+        for (const providerName of Object.keys(updatedSettings)) {
+          const apiKeyInfo = await checkProviderApiKey(providerName);
+          const shouldEnable = apiKeyInfo.isSet;
+
+          // Update the provider's enabled state
+          updatedSettings[providerName].settings.enabled = shouldEnable;
+
+          if (shouldEnable) {
+            enabledProviders.push(providerName);
+          }
+        }
+
+        // Save the auto-configured settings
+        localStorage.setItem(PROVIDER_SETTINGS_KEY, JSON.stringify(updatedSettings));
+
+        // Update the store with the new settings to trigger UI refresh
+        providersStore.set(updatedSettings);
+      }, 100); // Small delay to let UI render first
     }
   }
 

@@ -192,6 +192,7 @@ export const ModelSelector = ({
       return;
     }
 
+    // If provider is not in the provider list, switch to first available provider
     if (provider && !providerList.some((p) => p.name === provider.name)) {
       const firstEnabledProvider = providerList[0];
       setProvider?.(firstEnabledProvider);
@@ -202,7 +203,20 @@ export const ModelSelector = ({
         setModel?.(firstModel.name);
       }
     }
-  }, [providerList, provider, setProvider, modelList, setModel]);
+    
+    // If current model doesn't belong to current provider, select first model of current provider
+    if (provider && model && modelList.length > 0 && setModel) {
+      const currentModelProvider = modelList.find((m) => m.name === model)?.provider;
+      
+      if (currentModelProvider !== provider.name) {
+        const firstModelForProvider = modelList.find((m) => m.provider === provider.name);
+        
+        if (firstModelForProvider) {
+          setModel(firstModelForProvider.name);
+        }
+      }
+    }
+  }, [providerList, provider?.name, modelList, model]);
 
   if (providerList.length === 0) {
     return (
