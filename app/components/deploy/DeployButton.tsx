@@ -70,76 +70,76 @@ export const DeployButton = ({ onVercelDeploy, onNetlifyDeploy }: DeployButtonPr
           {isDeploying ? `Deploying to ${deployingTo}...` : 'Deploy'}
           <span className={classNames('i-ph:caret-down transition-transform')} />
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content
-          className={classNames(
-            'z-[250]',
-            'bg-bolt-elements-background-depth-2',
-            'rounded-lg shadow-lg',
-            'border border-bolt-elements-borderColor',
-            'animate-in fade-in-0 zoom-in-95',
-            'py-1',
-          )}
-          sideOffset={5}
-          align="end"
-        >
-          <DropdownMenu.Item
-            className={classNames(
-              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-              {
-                'opacity-60 cursor-not-allowed': isDeploying || !activePreview || !netlifyConn.user,
-              },
-            )}
-            disabled={isDeploying || !activePreview || !netlifyConn.user}
-            onClick={handleNetlifyDeployClick}
-          >
-            <img
-              className="w-5 h-5"
-              height="24"
-              width="24"
-              crossOrigin="anonymous"
-              src="https://cdn.simpleicons.org/netlify"
-            />
-            <span className="mx-auto">{!netlifyConn.user ? 'No Netlify Account Connected' : 'Deploy to Netlify'}</span>
-            {netlifyConn.user && <NetlifyDeploymentLink />}
-          </DropdownMenu.Item>
+        {/*<DropdownMenu.Content*/}
+        {/*  className={classNames(*/}
+        {/*    'z-[250]',*/}
+        {/*    'bg-bolt-elements-background-depth-2',*/}
+        {/*    'rounded-lg shadow-lg',*/}
+        {/*    'border border-bolt-elements-borderColor',*/}
+        {/*    'animate-in fade-in-0 zoom-in-95',*/}
+        {/*    'py-1',*/}
+        {/*  )}*/}
+        {/*  sideOffset={5}*/}
+        {/*  align="end"*/}
+        {/*>*/}
+        {/*  <DropdownMenu.Item*/}
+        {/*    className={classNames(*/}
+        {/*      'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',*/}
+        {/*      {*/}
+        {/*        'opacity-60 cursor-not-allowed': isDeploying || !activePreview || !netlifyConn.user,*/}
+        {/*      },*/}
+        {/*    )}*/}
+        {/*    disabled={isDeploying || !activePreview || !netlifyConn.user}*/}
+        {/*    onClick={handleNetlifyDeployClick}*/}
+        {/*  >*/}
+        {/*    <img*/}
+        {/*      className="w-5 h-5"*/}
+        {/*      height="24"*/}
+        {/*      width="24"*/}
+        {/*      crossOrigin="anonymous"*/}
+        {/*      src="https://cdn.simpleicons.org/netlify"*/}
+        {/*    />*/}
+        {/*    <span className="mx-auto">{!netlifyConn.user ? 'No Netlify Account Connected' : 'Deploy to Netlify'}</span>*/}
+        {/*    {netlifyConn.user && <NetlifyDeploymentLink />}*/}
+        {/*  </DropdownMenu.Item>*/}
 
-          <DropdownMenu.Item
-            className={classNames(
-              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-              {
-                'opacity-60 cursor-not-allowed': isDeploying || !activePreview || !vercelConn.user,
-              },
-            )}
-            disabled={isDeploying || !activePreview || !vercelConn.user}
-            onClick={handleVercelDeployClick}
-          >
-            <img
-              className="w-5 h-5 bg-black p-1 rounded"
-              height="24"
-              width="24"
-              crossOrigin="anonymous"
-              src="https://cdn.simpleicons.org/vercel/white"
-              alt="vercel"
-            />
-            <span className="mx-auto">{!vercelConn.user ? 'No Vercel Account Connected' : 'Deploy to Vercel'}</span>
-            {vercelConn.user && <VercelDeploymentLink />}
-          </DropdownMenu.Item>
+        {/*  <DropdownMenu.Item*/}
+        {/*    className={classNames(*/}
+        {/*      'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',*/}
+        {/*      {*/}
+        {/*        'opacity-60 cursor-not-allowed': isDeploying || !activePreview || !vercelConn.user,*/}
+        {/*      },*/}
+        {/*    )}*/}
+        {/*    disabled={isDeploying || !activePreview || !vercelConn.user}*/}
+        {/*    onClick={handleVercelDeployClick}*/}
+        {/*  >*/}
+        {/*    <img*/}
+        {/*      className="w-5 h-5 bg-black p-1 rounded"*/}
+        {/*      height="24"*/}
+        {/*      width="24"*/}
+        {/*      crossOrigin="anonymous"*/}
+        {/*      src="https://cdn.simpleicons.org/vercel/white"*/}
+        {/*      alt="vercel"*/}
+        {/*    />*/}
+        {/*    <span className="mx-auto">{!vercelConn.user ? 'No Vercel Account Connected' : 'Deploy to Vercel'}</span>*/}
+        {/*    {vercelConn.user && <VercelDeploymentLink />}*/}
+        {/*  </DropdownMenu.Item>*/}
 
-          <DropdownMenu.Item
-            disabled
-            className="flex items-center w-full rounded-md px-4 py-2 text-sm text-bolt-elements-textTertiary gap-2 opacity-60 cursor-not-allowed"
-          >
-            <img
-              className="w-5 h-5"
-              height="24"
-              width="24"
-              crossOrigin="anonymous"
-              src="https://cdn.simpleicons.org/cloudflare"
-              alt="cloudflare"
-            />
-            <span className="mx-auto">Deploy to Cloudflare (Coming Soon)</span>
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
+        {/*  <DropdownMenu.Item*/}
+        {/*    disabled*/}
+        {/*    className="flex items-center w-full rounded-md px-4 py-2 text-sm text-bolt-elements-textTertiary gap-2 opacity-60 cursor-not-allowed"*/}
+        {/*  >*/}
+        {/*    <img*/}
+        {/*      className="w-5 h-5"*/}
+        {/*      height="24"*/}
+        {/*      width="24"*/}
+        {/*      crossOrigin="anonymous"*/}
+        {/*      src="https://cdn.simpleicons.org/cloudflare"*/}
+        {/*      alt="cloudflare"*/}
+        {/*    />*/}
+        {/*    <span className="mx-auto">Deploy to Cloudflare (Coming Soon)</span>*/}
+        {/*  </DropdownMenu.Item>*/}
+        {/*</DropdownMenu.Content>*/}
       </DropdownMenu.Root>
     </div>
   );
