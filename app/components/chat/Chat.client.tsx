@@ -27,6 +27,8 @@ import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { supabaseConnection } from '~/lib/stores/supabase';
+import { defaultDesignScheme, type DesignScheme } from '~/types/design-scheme';
+import type { ElementInfo } from '~/components/workbench/Inspector';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -123,6 +125,7 @@ export const ChatImpl = memo(
     const [searchParams, setSearchParams] = useSearchParams();
     const [fakeLoading, setFakeLoading] = useState(false);
     const files = useStore(workbenchStore.files);
+    const [designScheme, setDesignScheme] = useState<DesignScheme>(defaultDesignScheme);
     const actionAlert = useStore(workbenchStore.alert);
     const supabaseConn = useStore(supabaseConnection); // Add this line to get Supabase connection
     const selectedProject = supabaseConn.stats?.projects?.find(
@@ -130,7 +133,6 @@ export const ChatImpl = memo(
     );
     const supabaseAlert = useStore(workbenchStore.supabaseAlert);
     const { activeProviders, promptId, autoSelectTemplate, contextOptimizationEnabled } = useSettings();
-
     const [model, setModel] = useState(() => {
       const savedModel = Cookies.get('selectedModel');
       return savedModel || DEFAULT_MODEL;
@@ -139,7 +141,6 @@ export const ChatImpl = memo(
       const savedProvider = Cookies.get('selectedProvider');
       return (PROVIDER_LIST.find((p) => p.name === savedProvider) || DEFAULT_PROVIDER) as ProviderInfo;
     });
-
     const { showChat } = useStore(chatStore);
 
     // Sync provider and model with activeProviders when provider configuration changes
@@ -165,10 +166,11 @@ export const ChatImpl = memo(
       }
     }, [activeProviders, provider.name]);
 
+
     const [animationScope, animate] = useAnimate();
-
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-
+    const [chatMode, setChatMode] = useState<'discuss' | 'build'>('build');
+    const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
     const {
       messages,
       isLoading,
@@ -189,6 +191,8 @@ export const ChatImpl = memo(
         files,
         promptId,
         contextOptimization: contextOptimizationEnabled,
+        chatMode,
+        designScheme,
         supabase: {
           isConnected: supabaseConn.isConnected,
           hasSelectedProject: !!selectedProject,
@@ -331,8 +335,14 @@ export const ChatImpl = memo(
         return;
       }
 
-      // If no locked items, proceed normally with the original message
-      const finalMessageContent = messageContent;
+      let finalMessageContent = messageContent;
+
+      if (selectedElement) {
+        console.log('Selected Element:', selectedElement);
+
+        const elementInfo = `<div class=\"__boltSelectedElement__\" data-element='${JSON.stringify(selectedElement)}'>${JSON.stringify(`${selectedElement.displayText}`)}</div>`;
+        finalMessageContent = messageContent + elementInfo;
+      }
 
       runAnimation();
 
@@ -585,6 +595,13 @@ export const ChatImpl = memo(
         supabaseAlert={supabaseAlert}
         clearSupabaseAlert={() => workbenchStore.clearSupabaseAlert()}
         data={chatData}
+        chatMode={chatMode}
+        setChatMode={setChatMode}
+        append={append}
+        designScheme={designScheme}
+        setDesignScheme={setDesignScheme}
+        selectedElement={selectedElement}
+        setSelectedElement={setSelectedElement}
       />
     );
   },

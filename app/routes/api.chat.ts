@@ -11,6 +11,7 @@ import type { ContextAnnotation, ProgressAnnotation, SegmentsGroupAnnotation } f
 import { WORK_DIR } from '~/utils/constants';
 import { createSummary } from '~/lib/.server/llm/create-summary';
 import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
+import type { DesignScheme } from '~/types/design-scheme';
 
 export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
@@ -37,11 +38,13 @@ function parseCookies(cookieHeader: string): Record<string, string> {
 }
 
 async function chatAction({ context, request }: ActionFunctionArgs) {
-  const { messages, files, promptId, contextOptimization, supabase } = await request.json<{
+  const { messages, files, promptId, contextOptimization, supabase, chatMode, designScheme } = await request.json<{
     messages: Messages;
     files: any;
     promptId?: string;
     contextOptimization: boolean;
+    chatMode: 'discuss' | 'build';
+    designScheme?: DesignScheme;
     supabase?: {
       isConnected: boolean;
       hasSelectedProject: boolean;
@@ -260,6 +263,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               promptId,
               contextOptimization,
               contextFiles: filteredFiles,
+              chatMode,
+              designScheme,
               summary,
               messageSliceId,
               traceParentHeader,
@@ -302,6 +307,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           promptId,
           contextOptimization,
           contextFiles: filteredFiles,
+          chatMode,
+          designScheme,
           summary,
           messageSliceId,
           traceParentHeader,
