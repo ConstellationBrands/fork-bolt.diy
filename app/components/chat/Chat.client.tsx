@@ -27,6 +27,8 @@ import { logStore } from '~/lib/stores/logs';
 import { streamingState } from '~/lib/stores/streaming';
 import { filesToArtifacts } from '~/utils/fileUtils';
 import { supabaseConnection } from '~/lib/stores/supabase';
+import { defaultDesignScheme, type DesignScheme } from '~/types/design-scheme';
+import type { ElementInfo } from '~/components/workbench/Inspector';
 
 const toastAnimation = cssTransition({
   enter: 'animated fadeInRight',
@@ -81,6 +83,7 @@ export function Chat() {
         position="bottom-right"
         pauseOnFocusLoss
         transition={toastAnimation}
+        autoClose={3000}
       />
     </>
   );
@@ -123,14 +126,15 @@ export const ChatImpl = memo(
     const [searchParams, setSearchParams] = useSearchParams();
     const [fakeLoading, setFakeLoading] = useState(false);
     const files = useStore(workbenchStore.files);
+    const [designScheme, setDesignScheme] = useState<DesignScheme>(defaultDesignScheme);
     const actionAlert = useStore(workbenchStore.alert);
+    const deployAlert = useStore(workbenchStore.deployAlert);
     const supabaseConn = useStore(supabaseConnection); // Add this line to get Supabase connection
     const selectedProject = supabaseConn.stats?.projects?.find(
       (project) => project.id === supabaseConn.selectedProjectId,
     );
     const supabaseAlert = useStore(workbenchStore.supabaseAlert);
     const { activeProviders, promptId, autoSelectTemplate, contextOptimizationEnabled } = useSettings();
-
     const [model, setModel] = useState(() => {
       const savedModel = Cookies.get('selectedModel');
       return savedModel || DEFAULT_MODEL;
@@ -139,36 +143,11 @@ export const ChatImpl = memo(
       const savedProvider = Cookies.get('selectedProvider');
       return (PROVIDER_LIST.find((p) => p.name === savedProvider) || DEFAULT_PROVIDER) as ProviderInfo;
     });
-
     const { showChat } = useStore(chatStore);
-
-    // Sync provider and model with activeProviders when provider configuration changes
-    useEffect(() => {
-      if (activeProviders.length === 0) {
-        return;
-      }
-
-      // Check if current provider is still in the active providers list
-      const isCurrentProviderActive = activeProviders.some((p) => p.name === provider.name);
-
-      if (!isCurrentProviderActive) {
-        // Current provider is no longer active, switch to first active provider
-        const firstActiveProvider = activeProviders[0];
-        setProvider(firstActiveProvider);
-        Cookies.set('selectedProvider', firstActiveProvider.name, { expires: 30 });
-
-        /*
-         * Also update the model to the first model of the new provider
-         * Note: We'll let the BaseChat component handle the model fetching and selection
-         * since it already has logic to fetch models when provider changes
-         */
-      }
-    }, [activeProviders, provider.name]);
-
     const [animationScope, animate] = useAnimate();
-
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-
+    const [chatMode, setChatMode] = useState<'discuss' | 'build'>('build');
+    const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
     const {
       messages,
       isLoading,
@@ -189,6 +168,8 @@ export const ChatImpl = memo(
         files,
         promptId,
         contextOptimization: contextOptimizationEnabled,
+        chatMode,
+        designScheme,
         supabase: {
           isConnected: supabaseConn.isConnected,
           hasSelectedProject: !!selectedProject,
@@ -331,8 +312,14 @@ export const ChatImpl = memo(
         return;
       }
 
-      // If no locked items, proceed normally with the original message
-      const finalMessageContent = messageContent;
+      let finalMessageContent = messageContent;
+
+      if (selectedElement) {
+        console.log('Selected Element:', selectedElement);
+
+        const elementInfo = `<div class=\"__boltSelectedElement__\" data-element='${JSON.stringify(selectedElement)}'>${JSON.stringify(`${selectedElement.displayText}`)}</div>`;
+        finalMessageContent = messageContent + elementInfo;
+      }
 
       runAnimation();
 
@@ -552,18 +539,16 @@ export const ChatImpl = memo(
         description={description}
         importChat={importChat}
         exportChat={exportChat}
-        messages={messages
-          .filter((message, i) => (message.role === 'assistant' ? parsedMessages[i] : true))
-          .map((message, i) => {
-            if (message.role === 'user') {
-              return message;
-            }
+        messages={messages.map((message, i) => {
+          if (message.role === 'user') {
+            return message;
+          }
 
-            return {
-              ...message,
-              content: parsedMessages[i] || '',
-            };
-          })}
+          return {
+            ...message,
+            content: parsedMessages[i] || '',
+          };
+        })}
         enhancePrompt={() => {
           enhancePrompt(
             input,
@@ -584,7 +569,16 @@ export const ChatImpl = memo(
         clearAlert={() => workbenchStore.clearAlert()}
         supabaseAlert={supabaseAlert}
         clearSupabaseAlert={() => workbenchStore.clearSupabaseAlert()}
+        deployAlert={deployAlert}
+        clearDeployAlert={() => workbenchStore.clearDeployAlert()}
         data={chatData}
+        chatMode={chatMode}
+        setChatMode={setChatMode}
+        append={append}
+        designScheme={designScheme}
+        setDesignScheme={setDesignScheme}
+        selectedElement={selectedElement}
+        setSelectedElement={setSelectedElement}
       />
     );
   },

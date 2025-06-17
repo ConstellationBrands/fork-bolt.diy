@@ -8,6 +8,8 @@ import { allowedHTMLElements } from '~/utils/markdown';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import { createScopedLogger } from '~/utils/logger';
 import { createFilesContext, extractPropertiesFromMessage } from './utils';
+import { discussPrompt } from '~/lib/common/prompts/discuss-prompt';
+import type { DesignScheme } from '~/types/design-scheme';
 
 export type Messages = Message[];
 
@@ -36,6 +38,8 @@ export async function streamText(props: {
   contextFiles?: FileMap;
   summary?: string;
   messageSliceId?: number;
+  chatMode?: 'discuss' | 'build';
+  designScheme?: DesignScheme;
 }) {
   const {
     messages,
@@ -48,6 +52,8 @@ export async function streamText(props: {
     contextOptimization,
     contextFiles,
     summary,
+    chatMode,
+    designScheme,
   } = props;
   let currentModel = DEFAULT_MODEL;
   let currentProvider = DEFAULT_PROVIDER.name;
@@ -117,6 +123,7 @@ export async function streamText(props: {
       cwd: WORK_DIR,
       allowedHtmlElements: allowedHTMLElements,
       modificationTagName: MODIFICATIONS_TAG_NAME,
+      designScheme,
       supabase: {
         isConnected: options?.supabaseConnection?.isConnected || false,
         hasSelectedProject: options?.supabaseConnection?.hasSelectedProject || false,
@@ -124,26 +131,26 @@ export async function streamText(props: {
       },
     }) ?? getSystemPrompt();
 
-  if (contextFiles && contextOptimization) {
+  if (chatMode === 'build' && contextFiles && contextOptimization) {
     const codeContext = createFilesContext(contextFiles, true);
 
     systemPrompt = `${systemPrompt}
 
-Below is the artifact containing the context loaded into context buffer for you to have knowledge of and might need changes to fullfill current user request.
-CONTEXT BUFFER:
----
-${codeContext}
----
-`;
+    Below is the artifact containing the context loaded into context buffer for you to have knowledge of and might need changes to fullfill current user request.
+    CONTEXT BUFFER:
+    ---
+    ${codeContext}
+    ---
+    `;
 
     if (summary) {
       systemPrompt = `${systemPrompt}
       below is the chat history till now
-CHAT SUMMARY:
----
-${props.summary}
----
-`;
+      CHAT SUMMARY:
+      ---
+      ${props.summary}
+      ---
+      `;
 
       if (props.messageSliceId) {
         processedMessages = processedMessages.slice(props.messageSliceId);
@@ -173,10 +180,10 @@ ${props.summary}
       .join('\n');
     systemPrompt = `${systemPrompt}
 
-IMPORTANT: The following files are locked and MUST NOT be modified in any way. Do not suggest or make any changes to these files. You can proceed with the request but DO NOT make any changes to these files specifically:
-${lockedFilesListString}
----
-`;
+    IMPORTANT: The following files are locked and MUST NOT be modified in any way. Do not suggest or make any changes to these files. You can proceed with the request but DO NOT make any changes to these files specifically:
+    ${lockedFilesListString}
+    ---
+    `;
   } else {
     console.log('No locked files found from any source for prompt.');
   }
@@ -192,7 +199,7 @@ ${lockedFilesListString}
       apiKeys,
       providerSettings,
     }),
-    system: systemPrompt,
+    system: chatMode === 'build' ? systemPrompt : discussPrompt(),
     maxTokens: dynamicMaxTokens,
     messages: convertToCoreMessages(processedMessages as any),
     ...options,

@@ -1,5 +1,4 @@
 import { useStore } from '@nanostores/react';
-import Cookies from 'js-cookie';
 import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useState, useMemo } from 'react';
@@ -28,6 +27,8 @@ import { PushToGitHubDialog } from '~/components/@settings/tabs/connections/comp
 import { uploadZipToS3 } from '~/lib/stores/s3';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { usePreviewStore } from '~/lib/stores/previews';
+import { chatStore } from '~/lib/stores/chat';
+import type { ElementInfo } from './Inspector';
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -37,6 +38,7 @@ interface WorkspaceProps {
     gitUrl?: string;
   };
   updateChatMestaData?: (metadata: any) => void;
+  setSelectedElement?: (element: ElementInfo | null) => void;
 }
 
 const viewTransition = { ease: cubicEasingFn };
@@ -280,7 +282,7 @@ const FileModifiedDropdown = memo(
 );
 
 export const Workbench = memo(
-  ({ chatStarted, isStreaming, actionRunner, metadata, updateChatMestaData }: WorkspaceProps) => {
+  ({ chatStarted, isStreaming, actionRunner, metadata, updateChatMestaData, setSelectedElement }: WorkspaceProps) => {
     renderLogger.trace('Workbench');
 
     const [isSyncing, setIsSyncing] = useState(false);
@@ -289,8 +291,6 @@ export const Workbench = memo(
     const [previewLink, setPreviewLink] = useState('');
     const [fileHistory, setFileHistory] = useState<Record<string, FileHistory>>({});
 
-    // const modifiedFiles = Array.from(useStore(workbenchStore.unsavedFiles).keys());
-
     const hasPreview = useStore(computed(workbenchStore.previews, (previews) => previews.length > 0));
     const showWorkbench = useStore(workbenchStore.showWorkbench);
     const selectedFile = useStore(workbenchStore.selectedFile);
@@ -298,6 +298,8 @@ export const Workbench = memo(
     const unsavedFiles = useStore(workbenchStore.unsavedFiles);
     const files = useStore(workbenchStore.files);
     const selectedView = useStore(workbenchStore.currentView);
+    const { showChat } = useStore(chatStore);
+    const canHideChat = showWorkbench || !showChat;
 
     const isSmallViewport = useViewport(1024);
 
@@ -374,7 +376,7 @@ export const Workbench = memo(
         >
           <div
             className={classNames(
-              'fixed top-[calc(var(--header-height)+1.5rem)] bottom-6 w-[var(--workbench-inner-width)] mr-4 z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
+              'fixed top-[calc(var(--header-height)+1.2rem)] bottom-6 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
               {
                 'w-full': isSmallViewport,
                 'left-0': showWorkbench && isSmallViewport,
@@ -383,9 +385,18 @@ export const Workbench = memo(
               },
             )}
           >
-            <div className="absolute inset-0 px-2 lg:px-6">
+            <div className="absolute inset-0 px-2 lg:px-4">
               <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
-                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor">
+                <div className="flex items-center px-3 py-2 border-b border-bolt-elements-borderColor gap-1.5">
+                  <button
+                    className={`${showChat ? 'i-ph:sidebar-simple-fill' : 'i-ph:sidebar-simple'} text-lg text-bolt-elements-textSecondary mr-1`}
+                    disabled={!canHideChat || isSmallViewport}
+                    onClick={() => {
+                      if (canHideChat) {
+                        chatStore.setKey('showChat', !showChat);
+                      }
+                    }}
+                  />
                   <Slider selected={selectedView} options={sliderOptions} setSelected={setSelectedView} />
                   <div className="ml-auto" />
                   {selectedView === 'code' && (
@@ -406,7 +417,6 @@ export const Workbench = memo(
                           setIsPreviewing(true);
 
                           const { projectName } = workbenchStore;
-                          const commitMessage = `Updating ${projectName}`;
 
                           if (!workbenchStore.description) {
                             alert('Please set a project name');
@@ -438,10 +448,6 @@ export const Workbench = memo(
                           Preview Link
                         </PanelHeaderButton>
                       )}
-                      <PanelHeaderButton className="mr-1 text-sm" onClick={handleSyncFiles} disabled={isSyncing}>
-                        {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
-                        {isSyncing ? 'Syncing...' : 'Sync Files'}
-                      </PanelHeaderButton>
                       <PanelHeaderButton
                         className="mr-1 text-sm"
                         onClick={() => {
@@ -451,10 +457,48 @@ export const Workbench = memo(
                         <div className="i-ph:terminal" />
                         Toggle Terminal
                       </PanelHeaderButton>
-                      <PanelHeaderButton className="mr-1 text-sm" onClick={() => setIsPushDialogOpen(true)}>
-                        <div className="i-ph:git-branch" />
-                        Push to GitHub
-                      </PanelHeaderButton>
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger className="text-sm flex items-center gap-1 text-bolt-elements-item-contentDefault bg-transparent enabled:hover:text-bolt-elements-item-contentActive rounded-md p-1 enabled:hover:bg-bolt-elements-item-backgroundActive disabled:cursor-not-allowed">
+                          <div className="i-ph:box-arrow-up" />
+                          Sync
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content
+                          className={classNames(
+                            'min-w-[240px] z-[250]',
+                            'bg-white dark:bg-[#141414]',
+                            'rounded-lg shadow-lg',
+                            'border border-gray-200/50 dark:border-gray-800/50',
+                            'animate-in fade-in-0 zoom-in-95',
+                            'py-1',
+                          )}
+                          sideOffset={5}
+                          align="end"
+                        >
+                          <DropdownMenu.Item
+                            className={classNames(
+                              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
+                            )}
+                            onClick={handleSyncFiles}
+                            disabled={isSyncing}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isSyncing ? <div className="i-ph:spinner" /> : <div className="i-ph:cloud-arrow-down" />}
+                              <span>{isSyncing ? 'Syncing...' : 'Sync Files'}</span>
+                            </div>
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item
+                            className={classNames(
+                              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
+                            )}
+                            onClick={() => setIsPushDialogOpen(true)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="i-ph:git-branch" />
+                              Push to GitHub
+                            </div>
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
                     </div>
                   )}
                   {selectedView === 'diff' && (
@@ -492,7 +536,7 @@ export const Workbench = memo(
                     <DiffView fileHistory={fileHistory} setFileHistory={setFileHistory} actionRunner={actionRunner} />
                   </View>
                   <View initial={{ x: '100%' }} animate={{ x: selectedView === 'preview' ? '0%' : '100%' }}>
-                    <Preview />
+                    <Preview setSelectedElement={setSelectedElement} />
                   </View>
                 </div>
               </div>
