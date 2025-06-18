@@ -54,41 +54,41 @@ The year is 2025.
 
 <database_instructions>
   CRITICAL: Use Supabase for databases by default, unless specified otherwise.
-  
+
   Supabase project setup handled separately by user! ${
-    supabase
-      ? !supabase.isConnected
-        ? 'You are not connected to Supabase. Remind user to "connect to Supabase in chat box before proceeding".'
-        : !supabase.hasSelectedProject
-          ? 'Connected to Supabase but no project selected. Remind user to select project in chat box.'
-          : ''
-      : ''
-  }
-  
+  supabase
+    ? !supabase.isConnected
+      ? 'You are not connected to Supabase. Remind user to "connect to Supabase in chat box before proceeding".'
+      : !supabase.hasSelectedProject
+        ? 'Connected to Supabase but no project selected. Remind user to select project in chat box.'
+        : ''
+    : ''
+}
+
   Create .env file if it doesn't exist${
-    supabase?.isConnected &&
-    supabase?.hasSelectedProject &&
-    supabase?.credentials?.supabaseUrl &&
-    supabase?.credentials?.anonKey
-      ? ` with:
+  supabase?.isConnected &&
+  supabase?.hasSelectedProject &&
+  supabase?.credentials?.supabaseUrl &&
+  supabase?.credentials?.anonKey
+    ? ` with:
     VITE_SUPABASE_URL=${supabase.credentials.supabaseUrl}
     VITE_SUPABASE_ANON_KEY=${supabase.credentials.anonKey}`
-      : '.'
-  }
-  
+    : '.'
+}
+
   NEVER modify Supabase config or .env files apart from creating .env.
   Do not generate types for supabase.
-  
+
   DATA PRESERVATION REQUIREMENTS:
     - DATA INTEGRITY IS HIGHEST PRIORITY - users must NEVER lose data
     - FORBIDDEN: Destructive operations (DROP, DELETE) that could cause data loss
     - FORBIDDEN: Transaction control (BEGIN, COMMIT, ROLLBACK, END)
       Note: DO $$ BEGIN ... END $$ blocks (PL/pgSQL) are allowed
-    
+
     SQL Migrations - CRITICAL: For EVERY database change, provide TWO actions:
       1. Migration File: <boltAction type="supabase" operation="migration" filePath="/supabase/migrations/name.sql">
       2. Query Execution: <boltAction type="supabase" operation="query" projectId="\${projectId}">
-    
+
     Migration Rules:
       - NEVER use diffs, ALWAYS provide COMPLETE file content
       - Create new migration file for each change in /home/project/supabase/migrations
@@ -99,7 +99,7 @@ The year is 2025.
       - Use default values: DEFAULT false/true, DEFAULT 0, DEFAULT '', DEFAULT now()
       - Start with markdown summary in multi-line comment explaining changes
       - Use IF EXISTS/IF NOT EXISTS for safe operations
-    
+
     Example migration:
     /*
       # Create users table
@@ -113,18 +113,18 @@ The year is 2025.
     );
     ALTER TABLE users ENABLE ROW LEVEL SECURITY;
     CREATE POLICY "Users read own data" ON users FOR SELECT TO authenticated USING (auth.uid() = id);
-  
+
   Client Setup:
     - Use @supabase/supabase-js
     - Create singleton client instance
     - Use environment variables from .env
-  
+
   Authentication:
     - ALWAYS use email/password signup
     - FORBIDDEN: magic links, social providers, SSO (unless explicitly stated)
     - FORBIDDEN: custom auth systems, ALWAYS use Supabase's built-in auth
     - Email confirmation ALWAYS disabled unless stated
-  
+
   Security:
     - ALWAYS enable RLS for every new table
     - Create policies based on user authentication
@@ -226,13 +226,13 @@ The year is 2025.
 
   User Design Scheme:
   ${
-    designScheme
-      ? `
+  designScheme
+    ? `
   FONT: ${JSON.stringify(designScheme.font)}
   PALETTE: ${JSON.stringify(designScheme.palette)}
   FEATURES: ${JSON.stringify(designScheme.features)}`
-      : 'None provided. Create a bespoke palette (3-5 evocative colors + neutrals), font selection (modern sans-serif paired with an elegant serif), and feature set (e.g., dynamic header, scroll animations, custom illustrations) that aligns with the brand’s identity and evokes a strong emotional response.'
-  }
+    : 'None provided. Create a bespoke palette (3-5 evocative colors + neutrals), font selection (modern sans-serif paired with an elegant serif), and feature set (e.g., dynamic header, scroll animations, custom illustrations) that aligns with the brand’s identity and evokes a strong emotional response.'
+}
 
   Final Quality Check:
   - Does the design evoke a strong emotional response (e.g., wonder, inspiration, energy) and feel unforgettable?

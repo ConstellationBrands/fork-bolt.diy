@@ -144,6 +144,30 @@ export const ChatImpl = memo(
       return (PROVIDER_LIST.find((p) => p.name === savedProvider) || DEFAULT_PROVIDER) as ProviderInfo;
     });
     const { showChat } = useStore(chatStore);
+
+    // Sync provider and model with activeProviders when provider configuration changes
+    useEffect(() => {
+      if (activeProviders.length === 0) {
+        return;
+      }
+
+      // Check if current provider is still in the active providers list
+      const isCurrentProviderActive = activeProviders.some((p) => p.name === provider.name);
+
+      if (!isCurrentProviderActive) {
+        // Current provider is no longer active, switch to first active provider
+        const firstActiveProvider = activeProviders[0];
+        setProvider(firstActiveProvider);
+        Cookies.set('selectedProvider', firstActiveProvider.name, { expires: 30 });
+
+        /*
+         * Also update the model to the first model of the new provider
+         * Note: We'll let the BaseChat component handle the model fetching and selection
+         * since it already has logic to fetch models when provider changes
+         */
+      }
+    }, [activeProviders, provider.name]);
+
     const [animationScope, animate] = useAnimate();
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
     const [chatMode, setChatMode] = useState<'discuss' | 'build'>('build');

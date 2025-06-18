@@ -143,6 +143,7 @@ async function fetchRepoContentsZip(repo: string, githubToken?: string) {
   // Fetch the zipball
   const zipResponse = await fetch(zipballUrl, {
     headers: {
+      'User-Agent': 'bolt.diy2-github-template-fetcher',
       ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
     },
   });
@@ -214,12 +215,8 @@ export async function loader({ request, context }: { request: Request; context: 
     const githubToken = context?.cloudflare?.env?.GITHUB_TOKEN || process.env.GITHUB_TOKEN;
 
     let fileList;
-
-    if (isCloudflareEnvironment(context)) {
-      fileList = await fetchRepoContentsCloudflare(repo, githubToken);
-    } else {
-      fileList = await fetchRepoContentsZip(repo, githubToken);
-    }
+    console.log('BEFORE IF')
+    fileList = await fetchRepoContentsZip(repo, githubToken);
 
     // Filter out .git files for both methods
     const filteredFiles = fileList.filter((file: any) => !file.path.startsWith('.git'));
