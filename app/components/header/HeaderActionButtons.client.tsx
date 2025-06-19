@@ -1,5 +1,3 @@
-// TODO ADD CUSTOM BUTTONS
-
 import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { useState } from 'react';

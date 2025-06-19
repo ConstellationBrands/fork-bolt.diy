@@ -108,6 +108,8 @@ async function handleProxyRequest(request: Request, path: string | undefined, co
     if (context.cloudflare.env.GITHUB_USER && context.cloudflare.env.GITHUB_TOKEN) {
       const basicAuth = btoa(`${context.cloudflare.env.GITHUB_USER}:${context.cloudflare.env.GITHUB_TOKEN}`);
       headers.set('Authorization', `Basic ${basicAuth}`);
+    } else {
+      headers.delete('Authorization');
     }
 
     console.log('Request headers:', Object.fromEntries(headers.entries()));

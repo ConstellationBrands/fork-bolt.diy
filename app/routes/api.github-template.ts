@@ -215,7 +215,6 @@ export async function loader({ request, context }: { request: Request; context: 
     const githubToken = context?.cloudflare?.env?.GITHUB_TOKEN || process.env.GITHUB_TOKEN;
 
     let fileList;
-    console.log('BEFORE IF')
     fileList = await fetchRepoContentsZip(repo, githubToken);
 
     // Filter out .git files for both methods

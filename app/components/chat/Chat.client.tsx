@@ -128,7 +128,6 @@ export const ChatImpl = memo(
     const files = useStore(workbenchStore.files);
     const [designScheme, setDesignScheme] = useState<DesignScheme>(defaultDesignScheme);
     const actionAlert = useStore(workbenchStore.alert);
-    const deployAlert = useStore(workbenchStore.deployAlert);
     const supabaseConn = useStore(supabaseConnection); // Add this line to get Supabase connection
     const selectedProject = supabaseConn.stats?.projects?.find(
       (project) => project.id === supabaseConn.selectedProjectId,
@@ -167,6 +166,7 @@ export const ChatImpl = memo(
          */
       }
     }, [activeProviders, provider.name]);
+
 
     const [animationScope, animate] = useAnimate();
     const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
@@ -563,16 +563,18 @@ export const ChatImpl = memo(
         description={description}
         importChat={importChat}
         exportChat={exportChat}
-        messages={messages.map((message, i) => {
-          if (message.role === 'user') {
-            return message;
-          }
+        messages={messages
+          .filter((message, i) => (message.role === 'assistant' ? parsedMessages[i] : true))
+          .map((message, i) => {
+            if (message.role === 'user') {
+              return message;
+            }
 
-          return {
-            ...message,
-            content: parsedMessages[i] || '',
-          };
-        })}
+            return {
+              ...message,
+              content: parsedMessages[i] || '',
+            };
+          })}
         enhancePrompt={() => {
           enhancePrompt(
             input,
@@ -593,8 +595,6 @@ export const ChatImpl = memo(
         clearAlert={() => workbenchStore.clearAlert()}
         supabaseAlert={supabaseAlert}
         clearSupabaseAlert={() => workbenchStore.clearSupabaseAlert()}
-        deployAlert={deployAlert}
-        clearDeployAlert={() => workbenchStore.clearDeployAlert()}
         data={chatData}
         chatMode={chatMode}
         setChatMode={setChatMode}
