@@ -176,6 +176,10 @@ export class WorkbenchStore {
     this.#terminalStore.attachBoltTerminal(terminal);
   }
 
+  detachTerminal(terminal: ITerminal) {
+    this.#terminalStore.detachTerminal(terminal);
+  }
+
   onTerminalResize(cols: number, rows: number) {
     this.#terminalStore.onTerminalResize(cols, rows);
   }
