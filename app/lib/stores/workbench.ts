@@ -164,6 +164,14 @@ export class WorkbenchStore {
     this.supabaseAlert.set(undefined);
   }
 
+  get DeployAlert() {
+    return this.deployAlert;
+  }
+
+  clearDeployAlert() {
+    this.deployAlert.set(undefined);
+  }
+
   toggleTerminal(value?: boolean) {
     this.#terminalStore.toggleTerminal(value);
   }
