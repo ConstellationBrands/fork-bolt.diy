@@ -159,4 +159,12 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:nextjs',
     visible: true,
   },
+  {
+    name: 'SolidJS',
+    label: 'SolidJS Tailwind',
+    description: 'Lightweight SolidJS starter template for building fast static websites',
+    githubRepo: 'xKevIsDev/solidjs-ts-tw',
+    tags: ['solidjs'],
+    icon: 'i-bolt:solidjs',
+  },
 ];
