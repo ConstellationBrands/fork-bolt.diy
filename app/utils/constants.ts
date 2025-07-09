@@ -166,5 +166,6 @@ export const STARTER_TEMPLATES: Template[] = [
     githubRepo: 'xKevIsDev/solidjs-ts-tw',
     tags: ['solidjs'],
     icon: 'i-bolt:solidjs',
+    visible: false,
   },
 ];
