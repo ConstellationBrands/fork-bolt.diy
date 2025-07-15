@@ -1,13 +1,13 @@
 export type ContextAnnotation =
   | {
-      type: 'codeContext';
-      files: string[];
-    }
+  type: 'codeContext';
+  files: string[];
+}
   | {
-      type: 'chatSummary';
-      summary: string;
-      chatId: string;
-    };
+  type: 'chatSummary';
+  summary: string;
+  chatId: string;
+};
 
 export type ProgressAnnotation = {
   type: 'progress';
@@ -17,7 +17,10 @@ export type ProgressAnnotation = {
   message: string;
 };
 
-export type SegmentsGroupAnnotation = {
-  type: 'segmentsGroup';
-  segmentsGroupId: string;
+export type ToolCallAnnotation = {
+  type: 'toolCall';
+  toolCallId: string;
+  serverName: string;
+  toolName: string;
+  toolDescription: string;
 };
