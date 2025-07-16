@@ -130,7 +130,7 @@ export function Search() {
       const options: Omit<TextSearchOptions, 'folders'> = {
         homeDir: WORK_DIR, // Adjust this path as needed
         includes: ['**/*.*'],
-        excludes: ['**/node_modules/**', '**/package-lock.json', '**/.git/**', '**/dist/**', '**/*.lock'],
+        excludes: ['**/node_modules/**', '**/package-lock.json', '**/.git/**', '**/dist/**', '**/.next/**', '**/*.lock'],
         gitignore: true,
         requireGit: false,
         globalIgnoreFiles: true,
