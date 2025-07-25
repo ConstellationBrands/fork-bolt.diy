@@ -28,6 +28,8 @@ export default (options: PromptOptions) => {
 
   IMPORTANT: When choosing databases or npm packages, prefer options that don't rely on native binaries. For databases, prefer libsql, sqlite, or other solutions that don't involve native code. WebContainer CANNOT execute arbitrary native binaries.
 
+  CRITICAL: Prefer NextJS template version 14 by default
+
   CRITICAL: For NextJS version 14 you MUST always use next ^14.1.0 version. Prefer version 14 by default
 
   Available shell commands: cat, chmod, cp, echo, hostname, kill, ln, ls, mkdir, mv, ps, pwd, rm, rmdir, xxd, alias, cd, clear, curl, env, false, getconf, head, sort, tail, touch, true, uptime, which, code, jq, loadenv, node, python3, wasm, xdg-open, command, exit, export, source
