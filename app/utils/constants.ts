@@ -158,11 +158,11 @@ export const STARTER_TEMPLATES: Template[] = [
   //   icon: 'i-bolt:astro',
   // },
   {
-    name: 'NextJS',
+    name: 'NextJS 14',
     label: 'NextJS',
     description: 'NextJS + React + Tailwind',
     githubRepo: 'packituz-gttz/blog-nextjs-react-tailwind-demo',
-    tags: ['nextjs', 'frontend', 'react', 'tailwind'],
+    tags: ['nextjs', 'frontend', 'react', 'tailwind', 'nextjs14', 'version14'],
     icon: 'i-bolt:nextjs',
     visible: true,
   },
