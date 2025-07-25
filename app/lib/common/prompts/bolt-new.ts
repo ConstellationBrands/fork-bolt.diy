@@ -32,6 +32,8 @@ export default (options: PromptOptions) => {
 
   CRITICAL: For NextJS version 14 you MUST always use next ^14.1.0 version. Prefer version 14 by default
 
+  CRITICAL: When using NextJS ensure that calls to useSearchParams() are wrapped in a Suspense boundary.
+
   Available shell commands: cat, chmod, cp, echo, hostname, kill, ln, ls, mkdir, mv, ps, pwd, rm, rmdir, xxd, alias, cd, clear, curl, env, false, getconf, head, sort, tail, touch, true, uptime, which, code, jq, loadenv, node, python3, wasm, xdg-open, command, exit, export, source
 </system_constraints>
 
