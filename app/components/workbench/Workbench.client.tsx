@@ -73,9 +73,9 @@ const workbenchVariants = {
 
 const FileModifiedDropdown = memo(
   ({
-    fileHistory,
-    onSelectFile,
-  }: {
+     fileHistory,
+     onSelectFile,
+   }: {
     fileHistory: Record<string, FileHistory>;
     onSelectFile: (filePath: string) => void;
   }) => {
@@ -279,12 +279,12 @@ const FileModifiedDropdown = memo(
 
 export const Workbench = memo(
   ({
-    chatStarted,
-    isStreaming,
-    metadata: _metadata,
-    updateChatMestaData: _updateChatMestaData,
-    setSelectedElement,
-  }: WorkspaceProps) => {
+     chatStarted,
+     isStreaming,
+     metadata: _metadata,
+     updateChatMestaData: _updateChatMestaData,
+     setSelectedElement,
+   }: WorkspaceProps) => {
     renderLogger.trace('Workbench');
 
     const [isPreviewing, setIsPreviewing] = useState(false);
