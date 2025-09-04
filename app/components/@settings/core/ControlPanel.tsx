@@ -142,6 +142,7 @@ export const ControlPanel = ({ open, onClose }: ControlPanelProps) => {
         return <ServiceStatusTab />;
       case 'mcp':
         return <McpTab />;
+
       default:
         return null;
     }

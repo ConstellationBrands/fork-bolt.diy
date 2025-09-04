@@ -112,17 +112,17 @@ If you're new to installing software from GitHub, don't worry! If you encounter 
 
 Let's get you up and running with the stable version of Bolt.DIY!
 
-## Quick Download
+## Quick Installation
 
 [![Download Latest Release](https://img.shields.io/github/v/release/stackblitz-labs/bolt.diy?label=Download%20Bolt&sort=semver)](https://github.com/stackblitz-labs/bolt.diy/releases/latest) ← Click here to go the the latest release version!
 
-- Next **click source.zip**
+- Download the binary for your platform
+- Note: For macOS, if you get the error "This app is damaged", run ```xattr -cr /path/to/Bolt.app```
 
-## Prerequisites
+## Manual installation
 
-Before you begin, you'll need to install two important pieces of software:
 
-### Install Node.js
+### Option 1: Node.js
 
 Node.js is required to run the application.
 
@@ -366,3 +366,4 @@ For answers to common questions, issues, and to see a list of recommended models
 **Who needs a commercial WebContainer API license?**
 
 bolt.diy source code is distributed as MIT, but it uses WebContainers API that [requires licensing](https://webcontainers.io/enterprise) for production usage in a commercial, for-profit setting. (Prototypes or POCs do not require a commercial license.) If you're using the API to meet the needs of your customers, prospective customers, and/or employees, you need a license to ensure compliance with our Terms of Service. Usage of the API in violation of these terms may result in your access being revoked.
+# Test commit to trigger Security Analysis workflow
