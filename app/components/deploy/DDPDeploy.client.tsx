@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { workbenchStore } from '~/lib/stores/workbench';
-import { DeployToDDP } from '~/components/@settings/tabs/connections/components/DeployToDDP';
+import { DeployToDDP } from '~/components/deploy/DeployToDDP';
 
 export function useDDPDeploy() {
   const [isDeployToDDPDialogOpen, setIsDeployToDDPDialogOpen] = useState(false);

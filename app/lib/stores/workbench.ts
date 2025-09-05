@@ -17,7 +17,6 @@ import { extractRelativePath } from '~/utils/diff';
 import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
-import { Buffer } from 'node:buffer';
 import type { ActionAlert, DeployAlert, SupabaseAlert } from '~/types/actions';
 
 const { saveAs } = fileSaver;
@@ -58,7 +57,6 @@ export class WorkbenchStore {
   modifiedFiles = new Set<string>();
   artifactIdList: string[] = [];
   #globalExecutionQueue = Promise.resolve();
-
   constructor() {
     if (import.meta.hot) {
       import.meta.hot.data.artifacts = this.artifacts;
@@ -67,6 +65,7 @@ export class WorkbenchStore {
       import.meta.hot.data.currentView = this.currentView;
       import.meta.hot.data.actionAlert = this.actionAlert;
       import.meta.hot.data.supabaseAlert = this.supabaseAlert;
+      import.meta.hot.data.deployAlert = this.deployAlert;
 
       // Ensure binary files are properly preserved across hot reloads
       const filesMap = this.files.get();
@@ -111,15 +110,12 @@ export class WorkbenchStore {
   get showTerminal() {
     return this.#terminalStore.showTerminal;
   }
-
   get boltTerminal() {
     return this.#terminalStore.boltTerminal;
   }
-
   get alert() {
     return this.actionAlert;
   }
-
   clearAlert() {
     this.actionAlert.set(undefined);
   }
@@ -136,24 +132,24 @@ export class WorkbenchStore {
     return (description.value ?? '').toLocaleLowerCase().replace(/[^a-zA-Z0-9]+/g, '-');
   }
 
-  get chart() {
+  async generateProjectZipFile() {
+    const zip = new JSZip();
     const files = this.files.get();
+
+    // const projectName = (description.value ?? 'project').toLocaleLowerCase().split(' ').join('_');
 
     for (const [filePath, dirent] of Object.entries(files)) {
       if (dirent?.type === 'file' && !dirent.isBinary) {
         const relativePath = extractRelativePath(filePath);
 
-        if (relativePath === 'vite.config.ts') {
-          return 'vite';
+        if (!relativePath.startsWith('dist/') && !relativePath.startsWith('.next/')) {
+          zip.file(relativePath, dirent.content);
         }
 
-        if (relativePath === 'next.config.js') {
-          return 'nextjs';
-        }
       }
     }
 
-    return 'vite';
+    return await zip.generateAsync({ type: 'base64' });
   }
 
   get SupabaseAlert() {
@@ -179,7 +175,6 @@ export class WorkbenchStore {
   attachTerminal(terminal: ITerminal) {
     this.#terminalStore.attachTerminal(terminal);
   }
-
   attachBoltTerminal(terminal: ITerminal) {
     this.#terminalStore.attachBoltTerminal(terminal);
   }
@@ -535,6 +530,13 @@ export class WorkbenchStore {
 
           this.supabaseAlert.set(alert);
         },
+        (alert) => {
+          if (this.#reloadedMessages.has(messageId)) {
+            return;
+          }
+
+          this.deployAlert.set(alert);
+        },
       ),
     });
   }
@@ -548,13 +550,11 @@ export class WorkbenchStore {
 
     this.artifacts.setKey(messageId, { ...artifact, ...state });
   }
-
   addAction(data: ActionCallbackData) {
     // this._addAction(data);
 
     this.addToExecutionQueue(() => this._addAction(data));
   }
-
   async _addAction(data: ActionCallbackData) {
     const { messageId } = data;
 
@@ -574,7 +574,6 @@ export class WorkbenchStore {
       this.addToExecutionQueue(() => this._runAction(data, isStreaming));
     }
   }
-
   async _runAction(data: ActionCallbackData, isStreaming: boolean = false) {
     const { messageId } = data;
 
@@ -656,33 +655,12 @@ export class WorkbenchStore {
         if (!relativePath.startsWith('dist/') && !relativePath.startsWith('.next/')) {
           zip.file(relativePath, dirent.content);
         }
-
       }
     }
 
     // Generate the zip file and save it
     const content = await zip.generateAsync({ type: 'blob' });
     saveAs(content, `${uniqueProjectName}.zip`);
-  }
-
-  async generateProjectZipFile() {
-    const zip = new JSZip();
-    const files = this.files.get();
-
-    // const projectName = (description.value ?? 'project').toLocaleLowerCase().split(' ').join('_');
-
-    for (const [filePath, dirent] of Object.entries(files)) {
-      if (dirent?.type === 'file' && !dirent.isBinary) {
-        const relativePath = extractRelativePath(filePath);
-
-        if (!relativePath.startsWith('dist/') && !relativePath.startsWith('.next/')) {
-          zip.file(relativePath, dirent.content);
-        }
-
-      }
-    }
-
-    return await zip.generateAsync({ type: 'base64' });
   }
 
   async syncFiles(targetHandle: FileSystemDirectoryHandle) {
@@ -716,152 +694,268 @@ export class WorkbenchStore {
     return syncedFiles;
   }
 
-  async pushToGitHub(repoName: string, otherUsername: string, commitMessage?: string, githubUsername?: string) {
+  async pushToRepository(
+    provider: 'github' | 'gitlab',
+    repoName: string,
+    commitMessage?: string,
+    username?: string,
+    token?: string,
+    isPrivate: boolean = false,
+    branchName: string = 'main',
+  ) {
     try {
-      // Use cookies if username and token are not provided
-      const githubToken = Cookies.get('githubToken');
-      const owner = githubUsername;
+      const isGitHub = provider === 'github';
+      const isGitLab = provider === 'gitlab';
 
-      if (!githubToken || !owner) {
-        throw new Error('GitHub token or username is not set in cookies or provided.');
+      const authToken = token || Cookies.get(isGitHub ? 'githubToken' : 'gitlabToken');
+      const owner = username || Cookies.get(isGitHub ? 'githubUsername' : 'gitlabUsername');
+
+      if (!authToken || !owner) {
+        throw new Error(`${provider} token or username is not set in cookies or provided.`);
       }
 
-      // Initialize Octokit with the auth token
-      const octokit = new Octokit({ auth: githubToken });
-
-      // Check if the repository already exists before creating it
-      let repoExists = false;
-      let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
-      console.log(`OWNER: ${owner}`);
-
-      try {
-        const resp = await octokit.repos.get({ owner, repo: repoName });
-        repo = resp.data;
-        repoExists = true;
-      } catch (error) {
-        if (error instanceof Error && 'status' in error && error.status === 404) {
-          // Repository doesn't exist, so create a new one
-          const { data: newRepo } = await octokit.repos.createInOrg({
-            org: owner,
-            name: repoName,
-            private: true,
-            auto_init: false,
-          });
-          repo = newRepo;
-
-          await octokit.repos.addCollaborator({
-            owner: repo.owner.login,
-            repo: repo.name,
-            username: otherUsername,
-            permission: 'admin', // Set permission to admin
-          });
-
-          const readmeContent = '# ' + repoName + '\n\nThis is a README file for the ' + repoName + ' repository.';
-
-          await octokit.rest.repos.createOrUpdateFileContents({
-            owner: repo.owner.login,
-            repo: repoName,
-            path: 'README.md',
-            message: 'Add README file',
-            content: Buffer.from(readmeContent).toString('base64'), // Encode content to base64
-            author: {
-              name: 'bolt-ddp',
-              email: 'bolt@cbrands.com',
-            },
-            committer: {
-              name: 'bolt-ddp',
-              email: 'bolt@cbrands.com',
-            },
-          });
-        } else {
-          console.log('cannot create repo!');
-          throw error; // Some other error occurred
-        }
-      }
-
-      if (repoExists) {
-        alert(`Repository already exists: ${repo.html_url}`);
-        throw new Error('Repository already exists!');
-      }
-
-      // Get all files
       const files = this.files.get();
 
       if (!files || Object.keys(files).length === 0) {
         throw new Error('No files found to push');
       }
 
-      // Create blobs for each file
-      const blobs = await Promise.all(
-        Object.entries(files).map(async ([filePath, dirent]) => {
-          if (dirent?.type === 'file' && dirent.content) {
-            const { data: blob } = await octokit.git.createBlob({
+      if (isGitHub) {
+        // Initialize Octokit with the auth token
+        const octokit = new Octokit({ auth: authToken });
+
+        // Check if the repository already exists before creating it
+        let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];
+        let visibilityJustChanged = false;
+
+        try {
+          const resp = await octokit.repos.get({ owner, repo: repoName });
+          repo = resp.data;
+          console.log('Repository already exists, using existing repo');
+
+          // Check if we need to update visibility of existing repo
+          if (repo.private !== isPrivate) {
+            console.log(
+              `Updating repository visibility from ${repo.private ? 'private' : 'public'} to ${isPrivate ? 'private' : 'public'}`,
+            );
+
+            try {
+              // Update repository visibility using the update method
+              const { data: updatedRepo } = await octokit.repos.update({
+                owner,
+                repo: repoName,
+                private: isPrivate,
+              });
+
+              console.log('Repository visibility updated successfully');
+              repo = updatedRepo;
+              visibilityJustChanged = true;
+
+              // Add a delay after changing visibility to allow GitHub to fully process the change
+              console.log('Waiting for visibility change to propagate...');
+              await new Promise((resolve) => setTimeout(resolve, 3000)); // 3 second delay
+            } catch (visibilityError) {
+              console.error('Failed to update repository visibility:', visibilityError);
+
+              // Continue with push even if visibility update fails
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && 'status' in error && error.status === 404) {
+            // Repository doesn't exist, so create a new one
+            console.log(`Creating new repository with private=${isPrivate}`);
+
+            // Create new repository with specified privacy setting
+            const createRepoOptions = {
+              name: repoName,
+              private: isPrivate,
+              auto_init: true,
+            };
+
+            console.log('Create repo options:', createRepoOptions);
+
+            const { data: newRepo } = await octokit.repos.createForAuthenticatedUser(createRepoOptions);
+
+            console.log('Repository created:', newRepo.html_url, 'Private:', newRepo.private);
+            repo = newRepo;
+
+            // Add a small delay after creating a repository to allow GitHub to fully initialize it
+            console.log('Waiting for repository to initialize...');
+            await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
+          } else {
+            console.error('Cannot create repo:', error);
+            throw error; // Some other error occurred
+          }
+        }
+
+        // Get all files
+        const files = this.files.get();
+
+        if (!files || Object.keys(files).length === 0) {
+          throw new Error('No files found to push');
+        }
+
+        // Function to push files with retry logic
+        const pushFilesToRepo = async (attempt = 1): Promise<string> => {
+          const maxAttempts = 3;
+
+          try {
+            console.log(`Pushing files to repository (attempt ${attempt}/${maxAttempts})...`);
+
+            // Create blobs for each file
+            const blobs = await Promise.all(
+              Object.entries(files).map(async ([filePath, dirent]) => {
+                if (dirent?.type === 'file' && dirent.content) {
+                  const { data: blob } = await octokit.git.createBlob({
+                    owner: repo.owner.login,
+                    repo: repo.name,
+                    content: Buffer.from(dirent.content).toString('base64'),
+                    encoding: 'base64',
+                  });
+                  return { path: extractRelativePath(filePath), sha: blob.sha };
+                }
+
+                return null;
+              }),
+            );
+
+            const validBlobs = blobs.filter(Boolean); // Filter out any undefined blobs
+
+            if (validBlobs.length === 0) {
+              throw new Error('No valid files to push');
+            }
+
+            // Refresh repository reference to ensure we have the latest data
+            const repoRefresh = await octokit.repos.get({ owner, repo: repoName });
+            repo = repoRefresh.data;
+
+            // Get the latest commit SHA (assuming main branch, update dynamically if needed)
+            const { data: ref } = await octokit.git.getRef({
               owner: repo.owner.login,
               repo: repo.name,
-              content: Buffer.from(dirent.content).toString('base64'),
-              encoding: 'base64',
+              ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
             });
-            return { path: extractRelativePath(filePath), sha: blob.sha };
+            const latestCommitSha = ref.object.sha;
+
+            // Create a new tree
+            const { data: newTree } = await octokit.git.createTree({
+              owner: repo.owner.login,
+              repo: repo.name,
+              base_tree: latestCommitSha,
+              tree: validBlobs.map((blob) => ({
+                path: blob!.path,
+                mode: '100644',
+                type: 'blob',
+                sha: blob!.sha,
+              })),
+            });
+
+            // Create a new commit
+            const { data: newCommit } = await octokit.git.createCommit({
+              owner: repo.owner.login,
+              repo: repo.name,
+              message: commitMessage || 'Initial commit from your app',
+              tree: newTree.sha,
+              parents: [latestCommitSha],
+            });
+
+            // Update the reference
+            await octokit.git.updateRef({
+              owner: repo.owner.login,
+              repo: repo.name,
+              ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
+              sha: newCommit.sha,
+            });
+
+            console.log('Files successfully pushed to repository');
+
+            return repo.html_url;
+          } catch (error) {
+            console.error(`Error during push attempt ${attempt}:`, error);
+
+            // If we've just changed visibility and this is not our last attempt, wait and retry
+            if ((visibilityJustChanged || attempt === 1) && attempt < maxAttempts) {
+              const delayMs = attempt * 2000; // Increasing delay with each attempt
+              console.log(`Waiting ${delayMs}ms before retry...`);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+              return pushFilesToRepo(attempt + 1);
+            }
+
+            throw error; // Rethrow if we're out of attempts
           }
+        };
 
-          return null;
-        }),
-      );
+        // Execute the push function with retry logic
+        const repoUrl = await pushFilesToRepo();
 
-      const validBlobs = blobs.filter(Boolean); // Filter out any undefined blobs
-
-      if (validBlobs.length === 0) {
-        throw new Error('No valid files to push');
+        // Return the repository URL
+        return repoUrl;
       }
 
-      // Get the latest commit SHA (assuming main branch, update dynamically if needed)
-      const { data: ref } = await octokit.git.getRef({
-        owner: repo.owner.login,
-        repo: repo.name,
-        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
-      });
-      const latestCommitSha = ref.object.sha;
+      if (isGitLab) {
+        const { GitLabApiService: gitLabApiServiceClass } = await import('~/lib/services/gitlabApiService');
+        const gitLabApiService = new gitLabApiServiceClass(authToken, 'https://gitlab.com');
 
-      // Create a new tree
-      const { data: newTree } = await octokit.git.createTree({
-        owner: repo.owner.login,
-        repo: repo.name,
-        base_tree: latestCommitSha,
-        tree: validBlobs.map((blob) => ({
-          path: blob!.path,
-          mode: '100644',
-          type: 'blob',
-          sha: blob!.sha,
-        })),
-      });
+        // Check or create repo
+        let repo = await gitLabApiService.getProject(owner, repoName);
 
-      // Create a new commit
-      const { data: newCommit } = await octokit.git.createCommit({
-        owner: repo.owner.login,
-        repo: repo.name,
-        message: commitMessage || 'Initial commit from your app',
-        tree: newTree.sha,
-        parents: [latestCommitSha],
-        author: {
-          name: 'bolt-ddp',
-          email: 'bolt@cbrands.com',
-        },
-      });
+        if (!repo) {
+          repo = await gitLabApiService.createProject(repoName, isPrivate);
+          await new Promise((r) => setTimeout(r, 2000)); // Wait for repo initialization
+        }
 
-      // Update the reference
-      await octokit.git.updateRef({
-        owner: repo.owner.login,
-        repo: repo.name,
-        ref: `heads/${repo.default_branch || 'main'}`, // Handle dynamic branch
-        sha: newCommit.sha,
-      });
+        // Check if branch exists, create if not
+        const branchRes = await gitLabApiService.getFile(repo.id, 'README.md', branchName).catch(() => null);
 
-      alert(`Repository created and code pushed: ${repo.html_url}`);
+        if (!branchRes || !branchRes.ok) {
+          // Create branch from default
+          await gitLabApiService.createBranch(repo.id, branchName, repo.default_branch);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+
+        const actions = Object.entries(files).reduce(
+          (acc, [filePath, dirent]) => {
+            if (dirent?.type === 'file' && dirent.content) {
+              acc.push({
+                action: 'create',
+                file_path: extractRelativePath(filePath),
+                content: dirent.content,
+              });
+            }
+
+            return acc;
+          },
+          [] as { action: 'create' | 'update'; file_path: string; content: string }[],
+        );
+
+        // Check which files exist and update action accordingly
+        for (const action of actions) {
+          const fileCheck = await gitLabApiService.getFile(repo.id, action.file_path, branchName);
+
+          if (fileCheck.ok) {
+            action.action = 'update';
+          }
+        }
+
+        // Commit all files
+        await gitLabApiService.commitFiles(repo.id, {
+          branch: branchName,
+          commit_message: commitMessage || 'Commit multiple files',
+          actions,
+        });
+
+        return repo.web_url;
+      }
+
+      // Should not reach here since we only handle GitHub and GitLab
+      throw new Error(`Unsupported provider: ${provider}`);
     } catch (error) {
-      console.error('Error pushing to GitHub:', error);
+      console.error('Error pushing to repository:', error);
       throw error; // Rethrow the error for further handling
     }
   }
+
 
   async deployToDDP(
     repoName: string,
@@ -973,6 +1067,7 @@ export class WorkbenchStore {
       throw error; // Rethrow the error for further handling
     }
   }
+
 
 }
 
