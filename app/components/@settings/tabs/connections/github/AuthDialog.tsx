@@ -48,18 +48,19 @@ export function AuthDialog({ isOpen, onClose }: AuthDialogProps) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Dialog.Content asChild>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor shadow-xl z-50"
-          >
-            <div className="p-6">
-              <Dialog.Title className="text-lg font-semibold text-bolt-elements-textPrimary mb-4">
-                Connect to GitHub
-              </Dialog.Title>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-[100]" />
+        <div className="fixed inset-0 z-[101] flex items-center justify-center">
+          <Dialog.Content asChild>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-bolt-elements-background-depth-1 rounded-lg border border-bolt-elements-borderColor shadow-xl"
+            >
+              <div className="p-6">
+                <Dialog.Title className="text-lg font-semibold text-bolt-elements-textPrimary mb-4">
+                  Connect to GitHub
+                </Dialog.Title>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -147,6 +148,7 @@ export function AuthDialog({ isOpen, onClose }: AuthDialogProps) {
             </div>
           </motion.div>
         </Dialog.Content>
+        </div>
       </Dialog.Portal>
     </Dialog.Root>
   );

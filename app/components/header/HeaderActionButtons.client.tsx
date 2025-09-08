@@ -17,7 +17,7 @@ export function HeaderActionButtons({ chatStarted: _chatStarted }: HeaderActionB
   return (
     <div className="flex items-center gap-1">
       {/* Deploy Button */}
-      {/*{shouldShowButtons && <DeployButton />}*/}
+      {shouldShowButtons && <DeployButton />}
       {/* Debug Tools */}
       {shouldShowButtons && (
         <div className="flex border border-bolt-elements-borderColor rounded-md overflow-hidden text-sm">
