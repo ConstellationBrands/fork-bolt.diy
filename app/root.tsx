@@ -112,6 +112,24 @@ export default function App() {
       timestamp: new Date().toISOString(),
     });
     fetchUserId();
+
+    // Initialize debug logging with improved error handling
+    import('./utils/debugLogger')
+      .then(({ debugLogger }) => {
+        /*
+         * The debug logger initializes itself and starts disabled by default
+         * It will only start capturing when enableDebugMode() is called
+         */
+        const status = debugLogger.getStatus();
+        logStore.logSystem('Debug logging ready', {
+          initialized: status.initialized,
+          capturing: status.capturing,
+          enabled: status.enabled,
+        });
+      })
+      .catch((error) => {
+        logStore.logError('Failed to initialize debug logging', error);
+      });
   }, []);
 
   return (
