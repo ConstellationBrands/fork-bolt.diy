@@ -17,6 +17,7 @@ const ALLOW_HEADERS = [
   'referer',
   'user-agent',
   'x-authorization',
+  'token',
   'authorization',
   'x-http-method-override',
   'x-requested-with',

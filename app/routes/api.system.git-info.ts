@@ -89,9 +89,17 @@ export const loader: LoaderFunction = async ({ request, context }: LoaderFunctio
       .find((cookie) => cookie.trim().startsWith('githubToken='))
       ?.split('=')[1];
 
+    // Print all request headers
+    console.log('Request Headers:');
+    for (const [key, value] of request.headers.entries()) {
+      console.log(`${key}: ${value}`);
+    }
+
     // Also check for token in Authorization header
-    const authHeader = request.headers.get('Authorization');
-    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const headerToken = request.headers.get('token');
+
+    console.log('COOKIE: ', cookieToken)
+    console.log('HEADER TOKEN: ', headerToken)
 
     const token = serverGithubToken || headerToken || cookieToken;
 
