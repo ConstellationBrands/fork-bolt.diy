@@ -63,7 +63,7 @@ export async function detectProjectCommands(files: FileContent[]): Promise<Proje
 
       // Check for preferred commands in priority order
       const preferredCommands = ['dev', 'start', 'preview'];
-      const availableCommand = preferredCommands.find((cmd) => scripts[cmd]);
+      const availableCommand = preferredCommands.find((cmd) => scripts[cmd])
 
       // Build setup command with non-interactive handling
       let baseSetupCommand = 'npx update-browserslist-db@latest && npm install';
@@ -73,23 +73,31 @@ export async function detectProjectCommands(files: FileContent[]): Promise<Proje
         baseSetupCommand += ' && npx shadcn@latest init';
       }
 
-      const setupCommand = makeNonInteractive(baseSetupCommand);
-
-      if (availableCommand) {
-        return {
-          type: 'Node.js',
-          setupCommand,
-          startCommand: `npm run ${availableCommand}`,
-          followupMessage: `Found "${availableCommand}" script in package.json. Running "npm run ${availableCommand}" after installation.`,
-        };
-      }
+      const setupCommand = 'npm install'
 
       return {
         type: 'Node.js',
         setupCommand,
+        startCommand: 'npm run dev',
         followupMessage:
           'Would you like me to inspect package.json to determine the available scripts for running this project?',
       };
+
+      // if (availableCommand) {
+      //   return {
+      //     type: 'Node.js',
+      //     setupCommand,
+      //     startCommand: `npm run ${availableCommand}`,
+      //     followupMessage: `Found "${availableCommand}" script in package.json. Running "npm run ${availableCommand}" after installation.`,
+      //   };
+      // }
+      //
+      // return {
+      //   type: 'Node.js',
+      //   setupCommand,
+      //   followupMessage:
+      //     'Would you like me to inspect package.json to determine the available scripts for running this project?',
+      // };
     } catch (error) {
       console.error('Error parsing package.json:', error);
       return { type: '', setupCommand: '', followupMessage: '' };
