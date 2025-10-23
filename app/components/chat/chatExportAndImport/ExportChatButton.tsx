@@ -33,15 +33,15 @@ export const ExportChatButton = ({ exportChat }: { exportChat?: () => void }) =>
             <div className="i-ph:code size-4.5"></div>
             <span>Download Code</span>
           </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className={classNames(
-              'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',
-            )}
-            onClick={() => exportChat?.()}
-          >
-            <div className="i-ph:chat size-4.5"></div>
-            <span>Export Chat</span>
-          </DropdownMenu.Item>
+          {/*<DropdownMenu.Item*/}
+          {/*  className={classNames(*/}
+          {/*    'cursor-pointer flex items-center w-full px-4 py-2 text-sm text-bolt-elements-textPrimary hover:bg-bolt-elements-item-backgroundActive gap-2 rounded-md group relative',*/}
+          {/*  )}*/}
+          {/*  onClick={() => exportChat?.()}*/}
+          {/*>*/}
+          {/*  <div className="i-ph:chat size-4.5"></div>*/}
+          {/*  <span>Export Chat</span>*/}
+          {/*</DropdownMenu.Item>*/}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     </div>

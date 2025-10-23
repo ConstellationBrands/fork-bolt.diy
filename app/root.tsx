@@ -84,8 +84,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 import { logStore } from './lib/stores/logs';
 import Cookies from 'js-cookie';
 import { customAlphabet } from 'nanoid'
-import dictionary from 'nanoid-dictionary';
-const { alphanumeric } = dictionary;
+import { alphanumeric } from 'nanoid-dictionary';
 
 export default function App() {
   const theme = useStore(themeStore);
