@@ -170,7 +170,7 @@ export const STARTER_TEMPLATES: Template[] = [
     name: 'NextJS',
     label: 'NextJS',
     description: 'NextJS + React + Tailwind',
-    githubRepo: 'packituz-gttz/blog-nextjs-react-tailwind-demo',
+    githubRepo: 'ConstellationBrands/bolt-nextjs-branding-template',
     tags: ['nextjs', 'nextjs14', 'frontend', 'react', 'tailwind', 'version14'],
     icon: 'i-bolt:nextjs',
     visible: true,
