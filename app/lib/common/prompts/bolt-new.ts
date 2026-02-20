@@ -28,6 +28,12 @@ export default (options: PromptOptions) => {
 
   IMPORTANT: When choosing databases or npm packages, prefer options that don't rely on native binaries. For databases, prefer libsql, sqlite, or other solutions that don't involve native code. WebContainer CANNOT execute arbitrary native binaries.
 
+  IMPORTANT: Preserve the template style. This means:
+    - Do NOT change fonts, font sizes, or typography classes.
+    - Do NOT change colors, themes, or color tokens.
+    - Do NOT change spacing, layout, or component variants that affect visual style.
+    - Only modify styling if the user explicitly asks you to change or remove styles.
+
   CRITICAL: Prefer NextJS template version 14 by default
 
   CRITICAL: For NextJS version 14 you MUST always use next ^14.1.0 version. Prefer version 14 by default
