@@ -48,7 +48,7 @@ export const STARTER_TEMPLATES: Template[] = [
     githubRepo: 'xKevIsDev/bolt-astro-basic-template',
     tags: ['astro', 'blog', 'performance'],
     icon: 'i-bolt:astro',
-    visible: true,
+    visible: false,
   },
   {
     name: 'NextJS Shadcn',
@@ -57,7 +57,7 @@ export const STARTER_TEMPLATES: Template[] = [
     githubRepo: 'xKevIsDev/bolt-nextjs-shadcn-template',
     tags: ['nextjs', 'react', 'typescript', 'shadcn', 'tailwind'],
     icon: 'i-bolt:nextjs',
-    visible: true,
+    visible: false,
   },
   {
     name: 'Vite Shadcn',
@@ -149,14 +149,6 @@ export const STARTER_TEMPLATES: Template[] = [
     icon: 'i-bolt:angular',
     visible: false,
   },
-  // {
-  //   name: 'Astro',
-  //   label: 'Astro',
-  //   description: 'Astro Blog starter template for blog sites',
-  //   githubRepo: 'packituz-gttz/blog-tutorial-demo',
-  //   tags: ['astro', 'frontend', 'blog'],
-  //   icon: 'i-bolt:astro',
-  // },
   {
     name: 'NextJS 15',
     label: 'NextJS 15',
@@ -164,7 +156,7 @@ export const STARTER_TEMPLATES: Template[] = [
     githubRepo: 'ConstellationBrands/bolt-nextjs15-branding-template',
     tags: ['nextjs15', 'frontend', 'react', 'tailwind', 'version15'],
     icon: 'i-bolt:nextjs',
-    visible: false,
+    visible: true,
   },
   {
     name: 'NextJS',
