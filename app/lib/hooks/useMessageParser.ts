@@ -1,5 +1,5 @@
 import type { JSONValue, Message } from 'ai';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { EnhancedStreamingMessageParser } from '~/lib/runtime/enhanced-message-parser';
 import { workbenchStore } from '~/lib/stores/workbench';
 import type { SegmentsGroupAnnotation } from '~/types/context';
@@ -99,6 +99,15 @@ const segmentsGroupIdFromAnnotation = (annotation: JSONValue): string | null => 
 export function useMessageParser() {
   const [parsedMessages, setParsedMessages] = useState<{ [key: number]: string }>({});
 
+  /*
+   * Track the last content fed to messageParser.parse() per message ID so we
+   * can skip re-parsing historical messages that haven't changed. Without this,
+   * every 100 ms cycle re-processes the entire conversation history even though
+   * only the last (streaming) message is changing, causing UI jank that grows
+   * linearly with conversation length.
+   */
+  const lastParsedContent = useRef<Record<string, string>>({});
+
   const parseMessages = useCallback((messages: Message[], isLoading: boolean) => {
     let reset = false;
 
@@ -109,6 +118,7 @@ export function useMessageParser() {
     if (import.meta.env.DEV && !isLoading) {
       reset = true;
       messageParser.reset();
+      lastParsedContent.current = {};
     }
 
     const messageContents: Record<number, string> = {};
@@ -143,6 +153,13 @@ export function useMessageParser() {
         const content = messageContents[index];
 
         if (content !== undefined) {
+          // Skip messages whose content hasn't changed — their parser state is already up to date
+          if (!reset && lastParsedContent.current[message.id] === content) {
+            continue;
+          }
+
+          lastParsedContent.current[message.id] = content;
+
           const newParsedContent = messageParser.parse(message.id, content);
           setParsedMessages((prevParsed) => ({
             ...prevParsed,

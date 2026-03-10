@@ -13,7 +13,10 @@ import { getFilePaths } from './select-context';
 // Long-think models (reasoning models with large internal token budgets) must be
 // capped to avoid multi-hour hangs where the server blocks before sending any data.
 const LONG_THINK_MODEL_RE = /\b(gpt-5|gpt-5\.2|gpt-5-codex|codex|o1|o3|claude-opus|claude-3-7|claude-3-5-sonnet-latest)\b/i;
-const LONG_THINK_BUILD_MAX_COMPLETION_TOKENS = 6000;
+// 25 000 gives reasoning models enough budget to reason (typically ~5k–15k tokens) AND produce
+// meaningful output (~5k–20k tokens). 6 000 was too low — the model exhausted its budget on
+// reasoning and returned empty text with finishReason: 'stop'.
+const LONG_THINK_BUILD_MAX_COMPLETION_TOKENS = 25000;
 
 export type Messages = Message[];
 
@@ -137,6 +140,12 @@ export async function streamText(props: {
   // OpenAI reasoning models require temperature === 1
   const reasoningTemperatureOverride = isReasoning ? { temperature: 1 } : {};
 
+  // Ask the model to reason briefly so the bulk of the token budget goes to
+  // visible output, not internal chain-of-thought. Ignored by non-OpenAI providers.
+  const reasoningProviderOptions = isReasoning
+    ? { providerOptions: { openai: { reasoningEffort: 'low' } } }
+    : {};
+
   let systemPrompt =
     PromptLibrary.getPropmtFromLibrary(promptId || 'default', {
       cwd: WORK_DIR,
@@ -184,6 +193,28 @@ ${props.summary}
           processedMessages = [lastMessage];
         }
       }
+    }
+  }
+
+  /*
+   * Reasoning models (o1, o3, gpt-5*) tend to complete the task in their internal
+   * chain-of-thought and then emit a plain-text summary ("Implemented X...") instead
+   * of the required <boltArtifact> XML. Injecting the formatting requirement directly
+   * into the last user message (not just the system prompt) reliably prevents this.
+   */
+  if (isReasoning) {
+    const lastUserIdx = processedMessages.map((m) => m.role).lastIndexOf('user');
+
+    if (lastUserIdx !== -1) {
+      const msg = processedMessages[lastUserIdx];
+      processedMessages[lastUserIdx] = {
+        ...msg,
+        content:
+          (typeof msg.content === 'string' ? msg.content : String(msg.content)) +
+          '\n\nCRITICAL: Your response MUST be structured using <boltArtifact> XML tags.' +
+          ' Write the complete file contents inside the artifact.' +
+          ' Do NOT describe changes in plain text — produce the actual artifact.',
+      };
     }
   }
 
@@ -244,6 +275,7 @@ ${props.summary}
         messages: multimodalMessages as any,
         ...filteredOptions,
         ...reasoningTemperatureOverride,
+        ...reasoningProviderOptions,
       });
     } else {
       // For non-multimodal content, we use the standard approach
@@ -269,6 +301,7 @@ ${props.summary}
         messages: convertToCoreMessages(normalizedTextMessages),
         ...filteredOptions,
         ...reasoningTemperatureOverride,
+        ...reasoningProviderOptions,
       });
     }
   } catch (error: any) {
@@ -326,6 +359,7 @@ ${props.summary}
         messages: fallbackMessages as any,
         ...filteredOptions,
         ...reasoningTemperatureOverride,
+        ...reasoningProviderOptions,
       });
     }
 
