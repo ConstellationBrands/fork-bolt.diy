@@ -70,7 +70,7 @@ const processSampledMessages = createSampler(
       storeMessageHistory(messages).catch((error) => toast.error(error.message));
     }
   },
-  50,
+  100,
 );
 
 interface ChatProps {

@@ -1,5 +1,5 @@
 import { convertToCoreMessages, streamText as _streamText, type Message } from 'ai';
-import { MAX_TOKENS, type FileMap } from './constants';
+import { MAX_TOKENS, isReasoningModel, type FileMap } from './constants';
 import { getSystemPrompt } from '~/lib/common/prompts/prompts';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, MODIFICATIONS_TAG_NAME, PROVIDER_LIST, WORK_DIR } from '~/utils/constants';
 import type { IProviderSetting } from '~/types/model';
@@ -9,6 +9,11 @@ import { LLMManager } from '~/lib/modules/llm/manager';
 import { createScopedLogger } from '~/utils/logger';
 import { createFilesContext, extractPropertiesFromMessage } from './utils';
 import { getFilePaths } from './select-context';
+
+// Long-think models (reasoning models with large internal token budgets) must be
+// capped to avoid multi-hour hangs where the server blocks before sending any data.
+const LONG_THINK_MODEL_RE = /\b(gpt-5|gpt-5\.2|gpt-5-codex|codex|o1|o3|claude-opus|claude-3-7|claude-3-5-sonnet-latest)\b/i;
+const LONG_THINK_BUILD_MAX_COMPLETION_TOKENS = 6000;
 
 export type Messages = Message[];
 
@@ -107,7 +112,30 @@ export async function streamText(props: {
 
   const dynamicMaxTokens = modelDetails && modelDetails.maxTokenAllowed ? modelDetails.maxTokenAllowed : MAX_TOKENS;
 
-  console.log(`DYNAMMIC TOKENS: ${dynamicMaxTokens}`)
+  // Reasoning models (o1, o3, gpt-5*) require maxCompletionTokens instead of maxTokens,
+  // and reject unsupported sampling parameters.
+  const isReasoning = isReasoningModel(modelDetails?.name ?? currentModel);
+  const isLongThinkBuild = LONG_THINK_MODEL_RE.test(modelDetails?.name ?? currentModel);
+
+  // Cap completion tokens for long-think models to prevent multi-hour hangs.
+  // These models consume internal reasoning tokens on top of output tokens; an
+  // uncapped budget (e.g. 64 000) causes the server to block for hours before
+  // sending a single byte to the client.
+  const safeMaxTokens = isLongThinkBuild
+    ? Math.min(dynamicMaxTokens, LONG_THINK_BUILD_MAX_COMPLETION_TOKENS)
+    : dynamicMaxTokens;
+
+  const tokenParams = isReasoning
+    ? { maxCompletionTokens: safeMaxTokens }
+    : { maxTokens: safeMaxTokens };
+
+  const unsupportedReasoningParams = ['temperature', 'topP', 'presencePenalty', 'frequencyPenalty', 'logprobs', 'topLogprobs', 'logitBias'];
+  const filteredOptions = isReasoning && options
+    ? Object.fromEntries(Object.entries(options).filter(([key]) => !unsupportedReasoningParams.includes(key)))
+    : options || {};
+
+  // OpenAI reasoning models require temperature === 1
+  const reasoningTemperatureOverride = isReasoning ? { temperature: 1 } : {};
 
   let systemPrompt =
     PromptLibrary.getPropmtFromLibrary(promptId || 'default', {
@@ -159,7 +187,10 @@ ${props.summary}
     }
   }
 
-  logger.info(`Sending llm call to ${provider.name} with model ${modelDetails.name}`);
+  logger.info(
+    `[DEBUG] Sending LLM call — provider: ${provider.name}, model: ${modelDetails.name}, ` +
+    `isReasoning: ${isReasoning}, isLongThink: ${isLongThinkBuild}, maxTokens: ${safeMaxTokens}`,
+  );
 
   // Store original messages for reference
   const originalMessages = [...messages];
@@ -209,9 +240,10 @@ ${props.summary}
           'tracestate': traceStateHeader,
           'x-request-id': requestIdHeader,
         },
-        maxTokens: dynamicMaxTokens,
+        ...tokenParams,
         messages: multimodalMessages as any,
-        ...options,
+        ...filteredOptions,
+        ...reasoningTemperatureOverride,
       });
     } else {
       // For non-multimodal content, we use the standard approach
@@ -233,9 +265,10 @@ ${props.summary}
           'tracestate': traceStateHeader,
           'x-request-id': requestIdHeader,
         },
-        maxTokens: dynamicMaxTokens,
+        ...tokenParams,
         messages: convertToCoreMessages(normalizedTextMessages),
-        ...options,
+        ...filteredOptions,
+        ...reasoningTemperatureOverride,
       });
     }
   } catch (error: any) {
@@ -289,9 +322,10 @@ ${props.summary}
           'tracestate': traceStateHeader,
           'x-request-id': requestIdHeader,
         },
-        maxTokens: dynamicMaxTokens,
+        ...tokenParams,
         messages: fallbackMessages as any,
-        ...options,
+        ...filteredOptions,
+        ...reasoningTemperatureOverride,
       });
     }
 

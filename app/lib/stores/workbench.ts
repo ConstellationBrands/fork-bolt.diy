@@ -594,38 +594,53 @@ export class WorkbenchStore {
     }
 
     if (data.action.type === 'file') {
+      // Yield to macrotask queue for non-streaming (batch) writes so the browser
+      // can repaint between file writes instead of blocking for the whole batch.
+      if (!isStreaming) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
+
       const wc = await webcontainer;
       const fullPath = path.join(wc.workdir, data.action.filePath);
 
-      /*
-       * For scoped locks, we would need to implement diff checking here
-       * to determine if the AI is modifying existing code or just adding new code
-       * This is a more complex feature that would be implemented in a future update
-       */
+      // Only switch the editor while streaming (one-at-a-time gives visual feedback),
+      // or on the very first file if nothing is selected yet.
+      if (isStreaming || !this.selectedFile.value) {
+        if (this.selectedFile.value !== fullPath) {
+          this.setSelectedFile(fullPath);
+        }
 
-      if (this.selectedFile.value !== fullPath) {
-        this.setSelectedFile(fullPath);
+        if (this.currentView.value !== 'code') {
+          this.currentView.set('code');
+        }
       }
 
-      if (this.currentView.value !== 'code') {
-        this.currentView.set('code');
-      }
+      if (isStreaming) {
+        /*
+         * Streaming: live-update the editor document so the user can watch the file
+         * being written in real time.  Write to the FS first if no document exists yet.
+         */
+        const doc = this.#editorStore.documents.get()[fullPath];
 
-      const doc = this.#editorStore.documents.get()[fullPath];
+        if (!doc) {
+          await artifact.runner.runAction(data, true);
+        }
 
-      if (!doc) {
-        await artifact.runner.runAction(data, isStreaming);
-      }
-
-      this.#editorStore.updateFile(fullPath, data.action.content);
-
-      if (!isStreaming && data.action.content) {
-        await this.saveFile(fullPath);
-      }
-
-      if (!isStreaming) {
+        this.#editorStore.updateFile(fullPath, data.action.content);
+      } else {
+        /*
+         * Non-streaming (batch): write once via the action runner (handles mkdir + writeFile).
+         * Also update the documents store so the editor shows up-to-date content when the
+         * user selects the file later.
+         *
+         * Critically: skip saveFile() here.  saveFile() calls files.setKey() on the nanostores
+         * map which triggers a synchronous useSyncExternalStore re-render of ChatImpl for every
+         * single file.  With 20 files delivered at once this is 20 consecutive synchronous
+         * full-tree re-renders — the main source of the UI freeze.
+         * The webcontainer file watcher updates the files store asynchronously instead.
+         */
         await artifact.runner.runAction(data);
-        this.resetAllFileModifications();
+        this.#editorStore.updateFile(fullPath, data.action.content);
       }
     } else {
       await artifact.runner.runAction(data);
@@ -634,7 +649,7 @@ export class WorkbenchStore {
 
   actionStreamSampler = createSampler(async (data: ActionCallbackData, isStreaming: boolean = false) => {
     return await this._runAction(data, isStreaming);
-  }, 100); // TODO: remove this magic number to have it configurable
+  }, 250);
 
   #getArtifact(id: string) {
     const artifacts = this.artifacts.get();

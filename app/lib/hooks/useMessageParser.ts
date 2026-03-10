@@ -10,18 +10,22 @@ const logger = createScopedLogger('useMessageParser');
 const messageParser = new EnhancedStreamingMessageParser({
   callbacks: {
     onArtifactOpen: (data) => {
-      logger.trace('onArtifactOpen', data);
+      logger.info('[DEBUG] onArtifactOpen', data);
 
       workbenchStore.showWorkbench.set(true);
       workbenchStore.addArtifact(data);
     },
     onArtifactClose: (data) => {
-      logger.trace('onArtifactClose');
+      logger.info('[DEBUG] onArtifactClose', data.artifactId);
 
       workbenchStore.updateArtifact(data, { closed: true });
+
+      // Reset file modification tracking once after all files in the artifact are written,
+      // rather than after each individual file write (which triggered a store update per file).
+      workbenchStore.resetAllFileModifications();
     },
     onActionOpen: (data) => {
-      logger.trace('onActionOpen', data.action);
+      logger.info('[DEBUG] onActionOpen', data.action.type, 'type' in data.action && data.action.type === 'file' ? (data.action as any).filePath : '');
 
       /*
        * File actions are streamed, so we add them immediately to show progress
@@ -32,7 +36,7 @@ const messageParser = new EnhancedStreamingMessageParser({
       }
     },
     onActionClose: (data) => {
-      logger.trace('onActionClose', data.action);
+      logger.info('[DEBUG] onActionClose', data.action.type, 'type' in data.action && data.action.type === 'file' ? (data.action as any).filePath : '');
 
       /*
        * Add non-file actions (shell, build, start, etc.) when they close
@@ -50,10 +54,39 @@ const messageParser = new EnhancedStreamingMessageParser({
     },
   },
 });
-const extractTextContent = (message: Message) =>
-  Array.isArray(message.content)
+const extractTextContent = (message: Message) => {
+  const raw = Array.isArray(message.content)
     ? (message.content.find((item) => item.type === 'text')?.text as string) || ''
     : message.content;
+
+  /*
+   * Some models (e.g. reasoning models served via OpenAI-compatible APIs like IDSGPT)
+   * emit thinking tokens inline as <think>...</think> text in the stream rather than
+   * as separate Vercel AI SDK reasoning parts (g: chunks).
+   *
+   * Two problems arise:
+   * 1. The thinking text often contains bolt tag *mentions* (e.g. "I'll use <boltArtifact>
+   *    to wrap the file") which confuse the parser into entering a broken artifact state,
+   *    so the real artifact that follows is never detected.
+   * 2. Some models place the *actual* <boltArtifact> block inside the <think> block and
+   *    add a short confirmation ("Your app is ready!") after </think>. Stripping the whole
+   *    block removes the artifact entirely — files are never written.
+   *
+   * Fix: for complete <think> blocks, extract any real <boltArtifact> tags and keep them;
+   * discard everything else in the block. For an unclosed block (still streaming in), strip
+   * from <think> to end of string — it will be re-evaluated once </think> arrives.
+   */
+  const cleaned = raw
+    .replace(/<think>([\s\S]*?)<\/think>/g, (_match, thinkContent: string) => {
+      // Hoist any complete boltArtifact blocks out of the think block so the parser
+      // can process them. Non-artifact thinking text is discarded.
+      const artifacts = thinkContent.match(/<boltArtifact[\s\S]*?<\/boltArtifact>/g);
+      return artifacts ? artifacts.join('\n') : '';
+    })
+    .replace(/<think>[\s\S]*$/, ''); // unclosed block still streaming in — strip for now
+
+  return cleaned;
+};
 
 const segmentsGroupIdFromAnnotation = (annotation: JSONValue): string | null => {
   if (annotation && typeof annotation === 'object' && 'type' in annotation && annotation.type === 'segmentsGroup') {
@@ -68,6 +101,10 @@ export function useMessageParser() {
 
   const parseMessages = useCallback((messages: Message[], isLoading: boolean) => {
     let reset = false;
+
+    // Inform the parser whether we are currently streaming so it can skip
+    // the expensive code-block detection pass during live streaming.
+    messageParser.setStreaming(isLoading);
 
     if (import.meta.env.DEV && !isLoading) {
       reset = true;

@@ -44,7 +44,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
     timeout: 60000 * 3,
     maxRetries: 5,
     onTimeout: () => {
-      logger.warn('Stream timeout - attempting recovery');
+      logger.warn('Stream timeout - attempting recovery :(');
     },
   });
 
@@ -121,8 +121,6 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           } satisfies ProgressAnnotation);
 
           // Create a summary of the chat
-          console.log(`Messages count: ${processedMessages.length}`);
-
           summary = await createSummary({
             messages: [...processedMessages],
             env: context.cloudflare?.env,
@@ -164,7 +162,6 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           } satisfies ProgressAnnotation);
 
           // Select context files
-          console.log(`Messages count: ${processedMessages.length}`);
           filteredFiles = await selectContext({
             messages: [...processedMessages],
             env: context.cloudflare?.env,
@@ -224,7 +221,11 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             });
           },
           onFinish: async ({ text: content, finishReason, usage }) => {
-            logger.debug('usage', JSON.stringify(usage));
+            logger.info(
+              `[DEBUG] onFinish — finishReason: ${finishReason}, textLength: ${content.length}, ` +
+              `hasBoltArtifact: ${content.includes('<boltArtifact')}, hasThinkBlock: ${content.includes('<think>')}`,
+            );
+            logger.info(`[DEBUG] LLM response text:\n${content}`);
 
             if (usage) {
               cumulativeUsage.completionTokens += usage.completionTokens || 0;
@@ -297,16 +298,13 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
             result.mergeIntoDataStream(dataStream);
 
-            (async () => {
-              for await (const part of result.fullStream) {
-                if (part.type === 'error') {
-                  const error: any = part.error;
-                  logger.error(`${error}`);
-
-                  return;
-                }
-              }
-            })();
+            // Use consumeStream for error detection — does NOT compete with mergeIntoDataStream
+            // because consumeStream internally calls result.fullStream which tees independently.
+            result.consumeStream({
+              onError: (error: any) => {
+                logger.error('Continuation streaming error:', error);
+              },
+            });
 
             return;
           },
@@ -339,28 +337,14 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
           requestIdHeader
         });
 
-        (async () => {
-          for await (const part of result.fullStream) {
-            streamRecovery.updateActivity();
-
-            if (part.type === 'error') {
-              const error: any = part.error;
-              logger.error('Streaming error:', error);
-              streamRecovery.stop();
-
-              // Enhanced error handling for common streaming issues
-              if (error.message?.includes('Invalid JSON response')) {
-                logger.error('Invalid JSON response detected - likely malformed API response');
-              } else if (error.message?.includes('token')) {
-                logger.error('Token-related error detected - possible token limit exceeded');
-              }
-
-              return;
-            }
-          }
-          streamRecovery.stop();
-        })();
         result.mergeIntoDataStream(dataStream);
+
+        // Use consumeStream for error detection + streamRecovery — tees independently.
+        result.consumeStream({
+          onError: (error: any) => {
+            logger.error('Streaming error:', error);
+          },
+        }).finally(() => streamRecovery.stop());
       },
       onError: (error: any) => {
         // Provide more specific error messages for common issues

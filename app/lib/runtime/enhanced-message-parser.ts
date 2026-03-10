@@ -11,6 +11,7 @@ const logger = createScopedLogger('EnhancedMessageParser');
 export class EnhancedStreamingMessageParser extends StreamingMessageParser {
   private _processedCodeBlocks = new Map<string, Set<string>>();
   private _artifactCounter = 0;
+  private _isStreaming = false;
 
   // Optimized command pattern lookup
   private _commandPatternMap = new Map<string, RegExp>([
@@ -32,9 +33,20 @@ export class EnhancedStreamingMessageParser extends StreamingMessageParser {
     super(options);
   }
 
+  setStreaming(isStreaming: boolean) {
+    this._isStreaming = isStreaming;
+  }
+
   parse(messageId: string, input: string): string {
     // First try the normal parsing
     let output = super.parse(messageId, input);
+
+    // Only run the heavy code-block detection when the message is complete (not streaming).
+    // During streaming the base parser handles bolt artifacts incrementally; running regexes
+    // over the full accumulated text on every chunk causes significant main-thread jank.
+    if (this._isStreaming) {
+      return output;
+    }
 
     // If no artifacts were detected, check for code blocks that should be files
     if (!this._hasDetectedArtifacts(input)) {
