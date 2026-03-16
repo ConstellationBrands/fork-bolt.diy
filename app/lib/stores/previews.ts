@@ -16,6 +16,8 @@ export interface PreviewInfo {
 
 // Create a broadcast channel for preview updates
 const PREVIEW_CHANNEL = 'preview-updates';
+const ENABLE_PREVIEW_CROSS_TAB_SYNC = false;
+const ENABLE_PREVIEW_STORAGE_SYNC = false;
 
 export class PreviewsStore {
   #availablePreviews = new Map<number, PreviewInfo>();
@@ -31,8 +33,8 @@ export class PreviewsStore {
 
   constructor(webcontainerPromise: Promise<WebContainer>) {
     this.#webcontainer = webcontainerPromise;
-    this.#broadcastChannel = this.#maybeCreateChannel(PREVIEW_CHANNEL);
-    this.#storageChannel = this.#maybeCreateChannel('storage-sync-channel');
+    this.#broadcastChannel = ENABLE_PREVIEW_CROSS_TAB_SYNC ? this.#maybeCreateChannel(PREVIEW_CHANNEL) : undefined;
+    this.#storageChannel = ENABLE_PREVIEW_STORAGE_SYNC ? this.#maybeCreateChannel('storage-sync-channel') : undefined;
 
     if (this.#broadcastChannel) {
       // Listen for preview updates from other tabs
@@ -63,7 +65,7 @@ export class PreviewsStore {
     }
 
     // Override localStorage setItem to catch all changes
-    if (typeof window !== 'undefined') {
+    if (ENABLE_PREVIEW_STORAGE_SYNC && typeof window !== 'undefined') {
       const originalSetItem = localStorage.setItem;
 
       localStorage.setItem = (...args) => {
@@ -146,6 +148,10 @@ export class PreviewsStore {
 
   // Broadcast storage state to other tabs
   private _broadcastStorageSync() {
+    if (!ENABLE_PREVIEW_STORAGE_SYNC || typeof window === 'undefined') {
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       const storage: Record<string, string> = {};
 

@@ -8,6 +8,17 @@ import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
 
 const logger = createScopedLogger('ActionRunner');
+const NOISY_PACKAGE_PROGRESS_RE =
+  /(?:progress:\s+resolved|packages:\s+\+|updated|ready up to date|resolved \d+, reused \d+)/i;
+const HEAVY_COMMAND_RE = /\b(?:pnpm|npm|yarn|bun)\s+(?:install|i|run\s+build|build)\b/i;
+
+function normalizeShellChunkForTimeline(chunk: string): string {
+  return chunk
+    .replace(/\u001b\[[0-9;?]*[ -\/]*[@-~]/g, '')
+    .replace(/\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, '')
+    .replace(/\r(?!\n)/g, '\n')
+    .replace(/\r\n/g, '\n');
+}
 
 export type ActionStatus = 'pending' | 'running' | 'complete' | 'aborted' | 'failed';
 
@@ -395,10 +406,27 @@ export class ActionRunner {
     const buildProcess = await webcontainer.spawn('npm', ['run', 'build']);
 
     let output = '';
+    const heavyCommand = HEAVY_COMMAND_RE.test('npm run build');
+    const streamState = { lastProgressEmitAt: 0 };
     const outputPromise = buildProcess.output.pipeTo(
       new WritableStream({
         write(data) {
-          output += data;
+          const normalized = normalizeShellChunkForTimeline(data);
+
+          if (heavyCommand && NOISY_PACKAGE_PROGRESS_RE.test(normalized)) {
+            const now = Date.now();
+
+            if (now - streamState.lastProgressEmitAt < 2500) {
+              return;
+            }
+
+            streamState.lastProgressEmitAt = now;
+            output += '[install progress]\n';
+
+            return;
+          }
+
+          output += normalized;
         },
       }),
     );
