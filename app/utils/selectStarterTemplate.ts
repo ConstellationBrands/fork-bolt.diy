@@ -118,7 +118,7 @@ const getGitHubRepoContent = async (repoName: string): Promise<{ name: string; p
     const response = await fetch(`/api/github-template?repo=${encodeURIComponent(repoName)}`);
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      return [];
     }
 
     // Our API will return the files in the format we need
@@ -127,7 +127,7 @@ const getGitHubRepoContent = async (repoName: string): Promise<{ name: string; p
     return files;
   } catch (error) {
     console.error('Error fetching release contents:', error);
-    throw error;
+    return [];
   }
 };
 
