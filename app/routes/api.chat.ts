@@ -14,6 +14,9 @@ import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
 import type { DesignScheme } from '~/types/design-scheme';
 import { MCPService } from '~/lib/services/mcpService';
 import { StreamRecoveryManager } from '~/lib/.server/llm/stream-recovery';
+import { analyzeRunContinuation } from '~/lib/.server/llm/run-continuation';
+
+const MAX_RUN_CONTINUATION_ATTEMPTS = 5;
 
 export async function action(args: ActionFunctionArgs) {
   return chatAction(args);
@@ -87,6 +90,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
   };
   const encoder: TextEncoder = new TextEncoder();
   let progressCounter: number = 1;
+  let runContinuationAttempts = 0;
 
   try {
     const mcpService = MCPService.getInstance();
@@ -231,6 +235,69 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               cumulativeUsage.completionTokens += usage.completionTokens || 0;
               cumulativeUsage.promptTokens += usage.promptTokens || 0;
               cumulativeUsage.totalTokens += usage.totalTokens || 0;
+            }
+
+            if (finishReason !== 'length') {
+              const lastUserMessage = processedMessages.filter((x) => x.role === 'user').slice(-1)[0];
+              const { model, provider, content: lastUserContent } = extractPropertiesFromMessage(lastUserMessage);
+
+              const runContinuationDecision = analyzeRunContinuation({
+                chatMode: chatMode || 'build',
+                lastUserContent: typeof lastUserContent === 'string' ? lastUserContent : JSON.stringify(lastUserContent),
+                assistantContent: content,
+                alreadyAttempted: runContinuationAttempts >= MAX_RUN_CONTINUATION_ATTEMPTS,
+              });
+
+              if (runContinuationDecision.shouldContinue) {
+                runContinuationAttempts += 1;
+                logger.info(
+                  `run continuation triggered — reason: ${runContinuationDecision.reason}, ` +
+                  `attempt: ${runContinuationAttempts}/${MAX_RUN_CONTINUATION_ATTEMPTS}`,
+                );
+
+                processedMessages.push({ id: generateId(), role: 'assistant', content });
+                processedMessages.push({
+                  id: generateId(),
+                  role: 'user',
+                  content:
+                    `[Model: ${model}]\n\n[Provider: ${provider}]\n\n` +
+                    `You scaffolded a project but did not complete the requested implementation.\n` +
+                    `Continue now and do ALL of the following:\n` +
+                    `1) Continue from the current project files (do NOT re-run create-vite/create-react-app if package.json already exists).\n` +
+                    `2) Implement the requested product requirements from the original user request:\n   ${
+                      typeof lastUserContent === 'string' ? lastUserContent : JSON.stringify(lastUserContent)
+                    }\n` +
+                    `3) Install dependencies only if missing.\n` +
+                    `4) Include a <boltAction type="start"> command that launches the dev server.\n` +
+                    `5) If a command fails, self-heal and retry with a corrected command.\n` +
+                    `6) Your response must start with executable <boltAction> steps (no plan-only prose).\n` +
+                    `7) If preview still shows the starter, replace src/App.tsx (or equivalent entry UI file) with the requested implementation.\n` +
+                    `8) Keep the final response concise and execution-focused.`,
+                });
+
+                const result = await streamText({
+                  messages: [...processedMessages],
+                  env: context.cloudflare?.env,
+                  options,
+                  apiKeys,
+                  files,
+                  providerSettings,
+                  promptId,
+                  contextOptimization,
+                  contextFiles: filteredFiles,
+                  chatMode,
+                  designScheme,
+                  summary,
+                  messageSliceId,
+                  traceParentHeader,
+                  traceStateHeader,
+                  requestIdHeader,
+                });
+
+                result.mergeIntoDataStream(dataStream);
+
+                return;
+              }
             }
 
             if (finishReason !== 'length') {

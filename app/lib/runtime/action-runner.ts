@@ -6,6 +6,7 @@ import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { BoltShell } from '~/utils/shell';
+import { normalizeArtifactFilePath } from './file-paths';
 
 const logger = createScopedLogger('ActionRunner');
 const NOISY_PACKAGE_PROGRESS_RE =
@@ -325,7 +326,8 @@ export class ActionRunner {
     }
 
     const webcontainer = await this.#webcontainer;
-    const relativePath = nodePath.relative(webcontainer.workdir, action.filePath);
+    const normalizedFilePath = normalizeArtifactFilePath(action.filePath, webcontainer.workdir);
+    const relativePath = nodePath.relative(webcontainer.workdir, normalizedFilePath);
 
     let folder = nodePath.dirname(relativePath);
 
