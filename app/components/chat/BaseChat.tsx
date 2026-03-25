@@ -66,6 +66,7 @@ interface BaseChatProps {
   setImageDataList?: (dataList: string[]) => void;
   actionAlert?: ActionAlert;
   clearAlert?: () => void;
+  actionAlertAutoFixState?: 'queued' | 'running';
   supabaseAlert?: SupabaseAlert;
   clearSupabaseAlert?: () => void;
   deployAlert?: DeployAlert;
@@ -114,6 +115,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       messages,
       actionAlert,
       clearAlert,
+      actionAlertAutoFixState,
       deployAlert,
       clearDeployAlert,
       supabaseAlert,
@@ -432,6 +434,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   {actionAlert && (
                     <ChatAlert
                       alert={actionAlert}
+                      autoFixState={actionAlertAutoFixState}
                       clearAlert={() => clearAlert?.()}
                       postMessage={(message) => {
                         sendMessage?.({} as any, message);

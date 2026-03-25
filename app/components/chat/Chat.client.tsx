@@ -28,6 +28,12 @@ import type { ElementInfo } from '~/components/workbench/Inspector';
 import type { TextUIPart, FileUIPart, Attachment } from '@ai-sdk/ui-utils';
 import { useMCPStore } from '~/lib/stores/mcp';
 import type { LlmErrorAlertType } from '~/types/actions';
+import {
+  diagnoseArchitectIssue,
+  decideArchitectAutoHeal,
+  buildArchitectAutoHealPrompt,
+  ARCHITECT_NAME,
+} from '~/lib/runtime/architect';
 
 const logger = createScopedLogger('Chat');
 
@@ -95,6 +101,7 @@ export const ChatImpl = memo(
     const [designScheme, setDesignScheme] = useState<DesignScheme>(defaultDesignScheme);
     const actionAlert = useStore(workbenchStore.alert);
     const deployAlert = useStore(workbenchStore.deployAlert);
+
     const supabaseConn = useStore(supabaseConnection);
     const selectedProject = supabaseConn.stats?.projects?.find(
       (project) => project.id === supabaseConn.selectedProjectId,
@@ -102,6 +109,7 @@ export const ChatImpl = memo(
     const supabaseAlert = useStore(workbenchStore.supabaseAlert);
     const { activeProviders, promptId, autoSelectTemplate, contextOptimizationEnabled } = useSettings();
     const [llmErrorAlert, setLlmErrorAlert] = useState<LlmErrorAlertType | undefined>(undefined);
+
     const [model, setModel] = useState(() => {
       const savedModel = Cookies.get('selectedModel');
       return savedModel || DEFAULT_MODEL;
@@ -201,6 +209,114 @@ export const ChatImpl = memo(
       initialMessages,
       initialInput: Cookies.get(PROMPT_COOKIE_KEY) || '',
     });
+
+    // Architect auto-heal state (must be after useChat so isLoading/append are in scope)
+    const architectAttemptCountsRef = useRef<Record<string, number>>({});
+    const architectInFlightRef = useRef(false);
+    const [architectAutoHealStatus, setArchitectAutoHealStatus] = useState<'queued' | 'running' | null>(null);
+    const [pendingArchitectHeal, setPendingArchitectHeal] = useState<{
+      alert: NonNullable<typeof actionAlert>;
+      diagnosis: ReturnType<typeof diagnoseArchitectIssue>;
+    } | null>(null);
+
+    // Architect: detect alert and enqueue or dispatch auto-heal
+    useEffect(() => {
+      if (!actionAlert) {
+        setPendingArchitectHeal(null);
+        setArchitectAutoHealStatus(null);
+
+        return;
+      }
+
+      const diagnosis = diagnoseArchitectIssue(actionAlert);
+
+      if (!diagnosis) {
+        return;
+      }
+
+      const attemptsForFingerprint = architectAttemptCountsRef.current[diagnosis.fingerprint] || 0;
+      const decision = decideArchitectAutoHeal({ diagnosis, attemptsForFingerprint });
+
+      if (!decision.shouldAutoHeal) {
+        toast.warning(
+          `${ARCHITECT_NAME}: attempt limit reached (${attemptsForFingerprint}/${diagnosis.maxAutoAttempts}). Click "Ask Bolt" to continue manually.`,
+        );
+
+        // Reset the counter so a fresh recurrence of the same error can auto-heal again
+        delete architectAttemptCountsRef.current[diagnosis.fingerprint];
+
+        return;
+      }
+
+      if (isLoading) {
+        setPendingArchitectHeal({ alert: actionAlert, diagnosis });
+        setArchitectAutoHealStatus('queued');
+
+        return;
+      }
+
+      if (!architectInFlightRef.current) {
+        architectInFlightRef.current = true;
+        setArchitectAutoHealStatus('running');
+
+        const attemptNumber = attemptsForFingerprint + 1;
+        architectAttemptCountsRef.current[diagnosis.fingerprint] = attemptNumber;
+
+        const prompt = buildArchitectAutoHealPrompt({ alert: actionAlert, diagnosis, attemptNumber });
+        const fullPrompt = `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${prompt}`;
+        workbenchStore.clearAlert();
+        toast.info(`${ARCHITECT_NAME}: auto-heal attempt ${attemptNumber}/${diagnosis.maxAutoAttempts}`);
+
+        append({ id: `${Date.now()}-architect-auto-heal`, role: 'user', content: fullPrompt })
+          .catch((err) => {
+            toast.error(err instanceof Error ? err.message : `${ARCHITECT_NAME} auto-heal failed to start`);
+          })
+          .finally(() => {
+            architectInFlightRef.current = false;
+            setArchitectAutoHealStatus(null);
+          });
+      }
+    }, [actionAlert, isLoading]);
+
+    // Architect: flush pending heal once stream is idle
+    useEffect(() => {
+      if (!pendingArchitectHeal || isLoading || architectInFlightRef.current) {
+        return;
+      }
+
+      const { alert, diagnosis } = pendingArchitectHeal;
+      setPendingArchitectHeal(null);
+
+      const attemptsForFingerprint = architectAttemptCountsRef.current[diagnosis!.fingerprint] || 0;
+      const decision = decideArchitectAutoHeal({ diagnosis: diagnosis!, attemptsForFingerprint });
+
+      if (!decision.shouldAutoHeal) {
+        setArchitectAutoHealStatus(null);
+
+        return;
+      }
+
+      architectInFlightRef.current = true;
+      setArchitectAutoHealStatus('running');
+
+      const attemptNumber = attemptsForFingerprint + 1;
+      architectAttemptCountsRef.current[diagnosis!.fingerprint] = attemptNumber;
+
+      const prompt = buildArchitectAutoHealPrompt({ alert, diagnosis: diagnosis!, attemptNumber });
+      const fullPrompt = `[Model: ${model}]\n\n[Provider: ${provider.name}]\n\n${prompt}`;
+      workbenchStore.clearAlert();
+      toast.info(`${ARCHITECT_NAME}: auto-heal attempt ${attemptNumber}/${decision.maxAutoAttempts}`);
+
+      append({ id: `${Date.now()}-architect-auto-heal`, role: 'user', content: fullPrompt })
+        .catch((err) => {
+          toast.error(err instanceof Error ? err.message : `${ARCHITECT_NAME} auto-heal failed to start`);
+        })
+        .finally(() => {
+          architectInFlightRef.current = false;
+          setArchitectAutoHealStatus(null);
+        });
+    }, [pendingArchitectHeal, isLoading]);
+
     useEffect(() => {
       const prompt = searchParams.get('prompt');
 
@@ -690,6 +806,7 @@ export const ChatImpl = memo(
         setImageDataList={setImageDataList}
         actionAlert={actionAlert}
         clearAlert={() => workbenchStore.clearAlert()}
+        actionAlertAutoFixState={architectAutoHealStatus ?? undefined}
         supabaseAlert={supabaseAlert}
         clearSupabaseAlert={() => workbenchStore.clearSupabaseAlert()}
         deployAlert={deployAlert}
