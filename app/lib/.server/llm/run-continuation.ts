@@ -29,6 +29,7 @@ const SCAFFOLD_RE =
 const STARTER_BOOTSTRAP_RE =
   /Bolt is initializing your project|template import is done|built-in .*starter fallback|fallback starter/i;
 const STARTER_PLACEHOLDER_RE = /Your fallback starter is ready\./i;
+const TEMPLATE_CONTINUATION_RE = /template import is done|TEMPLATE INSTRUCTIONS:/i;
 const START_ACTION_RE = /<boltAction[^>]*type="start"/i;
 const BOLT_ACTION_RE = /<boltAction\b/i;
 const FILE_ACTION_RE = /<boltAction[^>]*type="file"/i;
@@ -165,6 +166,13 @@ export function analyzeRunContinuation(options: RunContinuationOptions): RunCont
 
   if (chatMode !== 'build') {
     return { shouldContinue: false, reason: 'chat-mode-discuss' };
+  }
+
+  // Template continuation messages should never trigger run continuation — the
+  // template files are already written; an extra continuation prompt would
+  // overwrite the template's styling with a generic re-implementation.
+  if (TEMPLATE_CONTINUATION_RE.test(lastUserContent)) {
+    return { shouldContinue: false, reason: 'continuation-not-required' };
   }
 
   const runIntentDetected = RUN_INTENT_RE.test(lastUserContent);
