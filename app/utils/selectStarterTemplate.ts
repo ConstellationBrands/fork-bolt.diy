@@ -5,7 +5,7 @@ import { STARTER_TEMPLATES } from './constants';
 
 const starterTemplateSelectionPrompt = (templates: Template[]) => `
 You are an experienced developer who helps people choose the best starter template for their projects.
-IMPORTANT: NextJS 14 is preferred
+IMPORTANT: Always use Next.js 14 template unless the user explicitly ask for another one.
 IMPORTANT: Only choose shadcn templates if the user explicitly asks for shadcn.
 
 Available templates:
