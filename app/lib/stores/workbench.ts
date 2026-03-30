@@ -9,17 +9,13 @@ import { EditorStore } from './editor';
 import { FilesStore, type FileMap } from './files';
 import { PreviewsStore } from './previews';
 import { TerminalStore } from './terminal';
-import JSZip from 'jszip';
-import fileSaver from 'file-saver';
-import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { path } from '~/utils/path';
+import type { RestEndpointMethodTypes } from '@octokit/rest';
 import { extractRelativePath } from '~/utils/diff';
 import { description } from '~/lib/persistence';
 import Cookies from 'js-cookie';
 import { createSampler } from '~/utils/sampler';
 import type { ActionAlert, DeployAlert, SupabaseAlert } from '~/types/actions';
-
-const { saveAs } = fileSaver;
 
 export interface ArtifactState {
   id: string;
@@ -133,6 +129,7 @@ export class WorkbenchStore {
   }
 
   async generateProjectZipFile() {
+    const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
     const files = this.files.get();
 
@@ -657,6 +654,8 @@ export class WorkbenchStore {
   }
 
   async downloadZip() {
+    const [{ default: JSZip }, { default: fileSaver }] = await Promise.all([import('jszip'), import('file-saver')]);
+    const { saveAs } = fileSaver;
     const zip = new JSZip();
     const files = this.files.get();
 
@@ -741,6 +740,7 @@ export class WorkbenchStore {
 
       if (isGitHub) {
         // Initialize Octokit with the auth token
+        const { Octokit } = await import('@octokit/rest');
         const octokit = new Octokit({ auth: authToken });
 
         // Check if the repository already exists before creating it
@@ -1001,6 +1001,7 @@ export class WorkbenchStore {
       }
 
       // Initialize Octokit with the auth token
+      const { Octokit } = await import('@octokit/rest');
       const octokit = new Octokit({ auth: githubToken });
 
       let repo: RestEndpointMethodTypes['repos']['get']['response']['data'];

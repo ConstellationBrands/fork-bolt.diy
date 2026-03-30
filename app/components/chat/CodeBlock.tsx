@@ -1,5 +1,4 @@
-import { memo, useEffect, useState } from 'react';
-import { bundledLanguages, codeToHtml, isSpecialLang, type BundledLanguage, type SpecialLanguage } from 'shiki';
+import { memo, useState } from 'react';
 import { classNames } from '~/utils/classNames';
 import { createScopedLogger } from '~/utils/logger';
 
@@ -10,14 +9,13 @@ const logger = createScopedLogger('CodeBlock');
 interface CodeBlockProps {
   className?: string;
   code: string;
-  language?: BundledLanguage | SpecialLanguage;
+  language?: string;
   theme?: 'light-plus' | 'dark-plus';
   disableCopy?: boolean;
 }
 
 export const CodeBlock = memo(
-  ({ className, code, language = 'plaintext', theme = 'dark-plus', disableCopy = false }: CodeBlockProps) => {
-    const [html, setHTML] = useState<string | undefined>(undefined);
+  ({ className, code, language = 'plaintext', theme: _theme = 'dark-plus', disableCopy = false }: CodeBlockProps) => {
     const [copied, setCopied] = useState(false);
 
     const copyToClipboard = () => {
@@ -34,25 +32,13 @@ export const CodeBlock = memo(
       }, 2000);
     };
 
-    useEffect(() => {
-      let effectiveLanguage = language;
-
-      if (language && !isSpecialLang(language) && !(language in bundledLanguages)) {
-        logger.warn(`Unsupported language '${language}', falling back to plaintext`);
-        effectiveLanguage = 'plaintext';
-      }
-
-      logger.trace(`Language = ${effectiveLanguage}`);
-
-      const processCode = async () => {
-        setHTML(await codeToHtml(code, { lang: effectiveLanguage, theme }));
-      };
-
-      processCode();
-    }, [code, language, theme]);
+    logger.trace(`Language = ${language}`);
 
     return (
       <div className={classNames('relative group text-left', className)}>
+        <pre className={classNames('overflow-x-auto p-4 text-sm', className)}>
+          <code>{code}</code>
+        </pre>
         <div
           className={classNames(
             styles.CopyButtonContainer,
@@ -78,7 +64,6 @@ export const CodeBlock = memo(
             </button>
           )}
         </div>
-        <div dangerouslySetInnerHTML={{ __html: html ?? '' }}></div>
       </div>
     );
   },

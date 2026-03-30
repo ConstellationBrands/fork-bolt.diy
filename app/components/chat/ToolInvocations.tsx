@@ -1,7 +1,6 @@
 import type { ToolInvocationUIPart } from '@ai-sdk/ui-utils';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useMemo, useState, useEffect } from 'react';
-import { createHighlighter, type BundledLanguage, type BundledTheme, type HighlighterGeneric } from 'shiki';
+import { memo, useMemo, useState } from 'react';
 import { classNames } from '~/utils/classNames';
 import {
   TOOL_EXECUTION_APPROVAL,
@@ -14,18 +13,6 @@ import { logger } from '~/utils/logger';
 import { themeStore, type Theme } from '~/lib/stores/theme';
 import { useStore } from '@nanostores/react';
 import type { ToolCallAnnotation } from '~/types/context';
-
-const highlighterOptions = {
-  langs: ['json'],
-  themes: ['light-plus', 'dark-plus'],
-};
-
-const jsonHighlighter: HighlighterGeneric<BundledLanguage, BundledTheme> =
-  import.meta.hot?.data.jsonHighlighter ?? (await createHighlighter(highlighterOptions));
-
-if (import.meta.hot) {
-  import.meta.hot.data.jsonHighlighter = jsonHighlighter;
-}
 
 interface JsonCodeBlockProps {
   className?: string;
@@ -54,19 +41,12 @@ function JsonCodeBlock({ className, code, theme }: JsonCodeBlockProps) {
   }
 
   return (
-    <div
-      className={classNames('text-xs rounded-md overflow-hidden mcp-tool-invocation-code', className)}
-      dangerouslySetInnerHTML={{
-        __html: jsonHighlighter.codeToHtml(formattedCode, {
-          lang: 'json',
-          theme: theme === 'dark' ? 'dark-plus' : 'light-plus',
-        }),
-      }}
-      style={{
-        padding: '0',
-        margin: '0',
-      }}
-    ></div>
+    <pre
+      className={classNames('text-xs rounded-md overflow-hidden mcp-tool-invocation-code overflow-x-auto', className)}
+      style={{ padding: '0.5rem', margin: '0' }}
+    >
+      <code>{formattedCode}</code>
+    </pre>
   );
 }
 

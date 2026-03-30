@@ -18,6 +18,31 @@ export default defineConfig((config) => {
     },
     build: {
       target: 'esnext',
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/shiki') || id.includes('node_modules/@shikijs')) {
+              return 'shiki-vendor';
+            }
+            if (id.includes('node_modules/jszip') || id.includes('node_modules/file-saver')) {
+              return 'zip-vendor';
+            }
+            if (id.includes('node_modules/@octokit')) {
+              return 'octokit-vendor';
+            }
+            if (id.includes('node_modules/@codemirror') || id.includes('node_modules/@lezer')) {
+              return 'editor-vendor';
+            }
+            if (
+              id.includes('node_modules/ai') ||
+              id.includes('node_modules/@ai-sdk') ||
+              id.includes('node_modules/openai')
+            ) {
+              return 'llm-vendor';
+            }
+          },
+        },
+      },
     },
     plugins: [
       nodePolyfills({
