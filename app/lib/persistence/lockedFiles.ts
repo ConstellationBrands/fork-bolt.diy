@@ -20,6 +20,7 @@ const lockedItemsMap = new Map<string, Map<string, LockedItem>>();
 // Debounce timer for localStorage writes
 let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const SAVE_DEBOUNCE_MS = 300;
+let lastPersistedLockedItemsJson: string | null = null;
 
 /**
  * Get a chat-specific map from the lookup maps
@@ -111,8 +112,13 @@ export function saveLockedItems(items: LockedItem[]): void {
   saveDebounceTimer = setTimeout(() => {
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(LOCKED_FILES_KEY, JSON.stringify(items));
-        logger.info(`Saved ${items.length} locked items to localStorage`);
+        const json = JSON.stringify(items);
+
+        if (json !== lastPersistedLockedItemsJson) {
+          localStorage.setItem(LOCKED_FILES_KEY, json);
+          lastPersistedLockedItemsJson = json;
+          logger.info(`Saved ${items.length} locked items to localStorage`);
+        }
       }
     } catch (error) {
       logger.error('Failed to save locked items to localStorage', error);

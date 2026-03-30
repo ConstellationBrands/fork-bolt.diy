@@ -555,11 +555,7 @@ export class FilesStore {
     const webcontainer = await this.#webcontainer;
 
     try {
-      const relativePath = path.relative(webcontainer.workdir, filePath);
-
-      if (!relativePath) {
-        throw new Error(`EINVAL: invalid file path, write '${relativePath}'`);
-      }
+      const relativePath = this.#toRelativeWorkdirPath(webcontainer.workdir, filePath, 'write');
 
       const oldContent = this.getFile(filePath)?.content;
 
@@ -597,11 +593,7 @@ export class FilesStore {
     const webcontainer = await this.#webcontainer;
 
     try {
-      const relativePath = path.relative(webcontainer.workdir, filePath);
-
-      if (!relativePath) {
-        throw new Error(`EINVAL: invalid file path, write '${relativePath}'`);
-      }
+      const relativePath = this.#toRelativeWorkdirPath(webcontainer.workdir, filePath, 'write');
 
       await webcontainer.fs.writeFile(relativePath, content);
 
@@ -798,11 +790,7 @@ export class FilesStore {
     const webcontainer = await this.#webcontainer;
 
     try {
-      const relativePath = path.relative(webcontainer.workdir, filePath);
-
-      if (!relativePath) {
-        throw new Error(`EINVAL: invalid file path, create '${relativePath}'`);
-      }
+      const relativePath = this.#toRelativeWorkdirPath(webcontainer.workdir, filePath, 'create');
 
       const dirPath = path.dirname(relativePath);
 
@@ -851,11 +839,7 @@ export class FilesStore {
     const webcontainer = await this.#webcontainer;
 
     try {
-      const relativePath = path.relative(webcontainer.workdir, folderPath);
-
-      if (!relativePath) {
-        throw new Error(`EINVAL: invalid folder path, create '${relativePath}'`);
-      }
+      const relativePath = this.#toRelativeWorkdirPath(webcontainer.workdir, folderPath, 'mkdir');
 
       await webcontainer.fs.mkdir(relativePath, { recursive: true });
 
@@ -874,11 +858,7 @@ export class FilesStore {
     const webcontainer = await this.#webcontainer;
 
     try {
-      const relativePath = path.relative(webcontainer.workdir, filePath);
-
-      if (!relativePath) {
-        throw new Error(`EINVAL: invalid file path, delete '${relativePath}'`);
-      }
+      const relativePath = this.#toRelativeWorkdirPath(webcontainer.workdir, filePath, 'delete');
 
       await webcontainer.fs.rm(relativePath);
 
@@ -906,11 +886,7 @@ export class FilesStore {
     const webcontainer = await this.#webcontainer;
 
     try {
-      const relativePath = path.relative(webcontainer.workdir, folderPath);
-
-      if (!relativePath) {
-        throw new Error(`EINVAL: invalid folder path, delete '${relativePath}'`);
-      }
+      const relativePath = this.#toRelativeWorkdirPath(webcontainer.workdir, folderPath, 'rmdir');
 
       await webcontainer.fs.rm(relativePath, { recursive: true });
 
@@ -945,6 +921,16 @@ export class FilesStore {
       logger.error('Failed to delete folder\n\n', error);
       throw error;
     }
+  }
+
+  #toRelativeWorkdirPath(workdir: string, absolutePath: string, operation: string): string {
+    const relativePath = path.relative(workdir, absolutePath);
+
+    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw new Error(`EINVAL: path escapes workdir for ${operation}: '${absolutePath}'`);
+    }
+
+    return relativePath;
   }
 
   // method to persist deleted paths to localStorage
