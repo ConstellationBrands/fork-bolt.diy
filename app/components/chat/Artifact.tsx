@@ -155,7 +155,7 @@ function ShellCodeBlock({ classsName, code }: ShellCodeBlockProps) {
       className={classNames('text-xs whitespace-pre-wrap break-all rounded-md p-3', classsName)}
       style={{
         backgroundColor: 'var(--bolt-elements-actions-code-background)',
-        color: 'var(--bolt-elements-code-text)',
+        color: 'white',
       }}
     >
       <code>{code}</code>
