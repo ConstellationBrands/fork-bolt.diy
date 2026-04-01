@@ -30,7 +30,11 @@ export default defineConfig((config) => {
             if (id.includes('node_modules/@octokit')) {
               return 'octokit-vendor';
             }
-            if (id.includes('node_modules/@codemirror') || id.includes('node_modules/@lezer')) {
+            if (
+              id.includes('node_modules/@codemirror') ||
+              id.includes('node_modules/@lezer') ||
+              id.includes('node_modules/@uiw/codemirror-theme-vscode')
+            ) {
               return 'editor-vendor';
             }
             if (

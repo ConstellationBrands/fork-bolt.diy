@@ -1,12 +1,15 @@
 import { useStore } from '@nanostores/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { computed } from 'nanostores';
+import { atom, computed } from 'nanostores';
 import { memo, useEffect, useRef, useState } from 'react';
 import type { ActionState } from '~/lib/runtime/action-runner';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { WORK_DIR } from '~/utils/constants';
+
+// Fallback atom used when the artifact hasn't been registered yet
+const _emptyActionsAtom = atom<Record<string, ActionState>>({});
 
 interface ArtifactProps {
   messageId: string;
@@ -22,7 +25,7 @@ export const Artifact = memo(({ artifactId }: ArtifactProps) => {
   const artifact = artifacts[artifactId];
 
   const actions = useStore(
-    computed(artifact.runner.actions, (actions) => {
+    computed(artifact ? artifact.runner.actions : _emptyActionsAtom, (actions) => {
       // Filter out Supabase actions except for migrations
       return Object.values(actions).filter((action) => {
         // Exclude actions with type 'supabase' or actions that contain 'supabase' in their content
@@ -37,6 +40,11 @@ export const Artifact = memo(({ artifactId }: ArtifactProps) => {
   };
 
   useEffect(() => {
+    if (!artifact) {
+      setAllActionFinished(false);
+      return;
+    }
+
     if (actions.length && !showActions && !userToggledActions.current) {
       setShowActions(true);
     }
@@ -50,26 +58,31 @@ export const Artifact = memo(({ artifactId }: ArtifactProps) => {
         setAllActionFinished(finished);
       }
     }
-  }, [actions, artifact.type, allActionFinished]);
+  }, [actions, artifact, showActions, allActionFinished]);
 
   // Determine the dynamic title based on state for bundled artifacts
   const dynamicTitle =
-    artifact?.type === 'bundled'
-      ? allActionFinished
-        ? artifact.id === 'restored-project-setup'
-          ? 'Project Restored' // Title when restore is complete
-          : 'Project Created' // Title when initial creation is complete
-        : artifact.id === 'restored-project-setup'
-          ? 'Restoring Project...' // Title during restore
-          : 'Creating Project...' // Title during initial creation
-      : artifact?.title; // Fallback to original title for non-bundled or if artifact is missing
+    artifact == null
+      ? 'Preparing workspace...'
+      : artifact.type === 'bundled'
+        ? allActionFinished
+          ? artifact.id === 'restored-project-setup'
+            ? 'Project Restored' // Title when restore is complete
+            : 'Project Created' // Title when initial creation is complete
+          : artifact.id === 'restored-project-setup'
+            ? 'Restoring Project...' // Title during restore
+            : 'Creating Project...' // Title during initial creation
+        : artifact.title; // Fallback to original title for non-bundled
+
+  const artifactType = artifact?.type;
 
   return (
     <>
       <div className="artifact border border-bolt-elements-borderColor flex flex-col overflow-hidden rounded-lg w-full transition-border duration-150">
         <div className="flex">
           <button
-            className="flex items-stretch bg-bolt-elements-artifacts-background hover:bg-bolt-elements-artifacts-backgroundHover w-full overflow-hidden"
+            className="flex items-stretch bg-bolt-elements-artifacts-background hover:bg-bolt-elements-artifacts-backgroundHover w-full overflow-hidden disabled:cursor-wait disabled:opacity-75"
+            disabled={!artifact}
             onClick={() => {
               const showWorkbench = workbenchStore.showWorkbench.get();
               workbenchStore.showWorkbench.set(!showWorkbench);
@@ -81,13 +94,13 @@ export const Artifact = memo(({ artifactId }: ArtifactProps) => {
                 {dynamicTitle}
               </div>
               <div className="w-full w-full text-bolt-elements-textSecondary text-xs mt-0.5">
-                Click to open Workbench
+                {artifact ? 'Click to open Workbench' : 'Waiting for workspace details and file actions'}
               </div>
             </div>
           </button>
-          {artifact.type !== 'bundled' && <div className="bg-bolt-elements-artifacts-borderColor w-[1px]" />}
+          {artifactType !== 'bundled' && artifact && <div className="bg-bolt-elements-artifacts-borderColor w-[1px]" />}
           <AnimatePresence>
-            {actions.length && artifact.type !== 'bundled' && (
+            {actions.length > 0 && artifactType !== 'bundled' && artifact && (
               <motion.button
                 initial={{ width: 0 }}
                 animate={{ width: 'auto' }}
@@ -103,7 +116,17 @@ export const Artifact = memo(({ artifactId }: ArtifactProps) => {
             )}
           </AnimatePresence>
         </div>
-        {artifact.type === 'bundled' && (
+        {!artifact && (
+          <div className="flex items-center gap-1.5 p-5 bg-bolt-elements-actions-background border-t border-bolt-elements-artifacts-borderColor">
+            <div className="text-lg text-bolt-elements-loader-progress">
+              <div className="i-svg-spinners:90-ring-with-bg"></div>
+            </div>
+            <div className="text-bolt-elements-textPrimary font-medium leading-5 text-sm">
+              Waiting for the workspace to finish initializing
+            </div>
+          </div>
+        )}
+        {artifactType === 'bundled' && artifact && (
           <div className="flex items-center gap-1.5 p-5 bg-bolt-elements-actions-background border-t border-bolt-elements-artifacts-borderColor">
             <div className={classNames('text-lg', getIconColor(allActionFinished ? 'complete' : 'running'))}>
               {allActionFinished ? (
@@ -123,7 +146,7 @@ export const Artifact = memo(({ artifactId }: ArtifactProps) => {
           </div>
         )}
         <AnimatePresence>
-          {artifact.type !== 'bundled' && showActions && actions.length > 0 && (
+          {artifactType !== 'bundled' && artifact && showActions && actions.length > 0 && (
             <motion.div
               className="actions"
               initial={{ height: 0 }}

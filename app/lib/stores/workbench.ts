@@ -4,7 +4,6 @@ import { ActionRunner } from '~/lib/runtime/action-runner';
 import type { ActionCallbackData, ArtifactCallbackData } from '~/lib/runtime/message-parser';
 import { webcontainer } from '~/lib/webcontainer';
 import type { ITerminal } from '~/types/terminal';
-import { unreachable } from '~/utils/unreachable';
 import { EditorStore } from './editor';
 import { FilesStore, type FileMap } from './files';
 import { PreviewsStore } from './previews';
@@ -559,10 +558,11 @@ export class WorkbenchStore {
   async _addAction(data: ActionCallbackData) {
     const { artifactId } = data;
 
-    const artifact = this.#getArtifact(artifactId);
+    const artifact = await this.#waitForArtifact(artifactId);
 
     if (!artifact) {
-      unreachable('Artifact not found');
+      console.warn(`[workbench] Artifact ${artifactId} was not ready before action registration — skipping.`);
+      return;
     }
 
     return artifact.runner.addAction(data);
@@ -578,10 +578,11 @@ export class WorkbenchStore {
   async _runAction(data: ActionCallbackData, isStreaming: boolean = false) {
     const { artifactId } = data;
 
-    const artifact = this.#getArtifact(artifactId);
+    const artifact = await this.#waitForArtifact(artifactId);
 
     if (!artifact) {
-      unreachable('Artifact not found');
+      console.warn(`[workbench] Artifact ${artifactId} was not ready before action execution — skipping.`);
+      return;
     }
 
     const action = artifact.runner.actions.get()[data.actionId];
@@ -651,6 +652,28 @@ export class WorkbenchStore {
   #getArtifact(id: string) {
     const artifacts = this.artifacts.get();
     return artifacts[id];
+  }
+
+  async #waitForArtifact(id: string, timeoutMs = 5000): Promise<ArtifactState | undefined> {
+    const existing = this.#getArtifact(id);
+
+    if (existing) {
+      return existing;
+    }
+
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+      const artifact = this.#getArtifact(id);
+
+      if (artifact) {
+        return artifact;
+      }
+    }
+
+    return undefined;
   }
 
   async downloadZip() {
