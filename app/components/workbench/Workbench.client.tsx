@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react';
 import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
-import { memo, useCallback, useEffect, useState, useMemo } from 'react';
+import { memo, useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { toast } from 'react-toastify';
 import { Popover, Transition } from '@headlessui/react';
 import { diffLines, type Change } from 'diff';
@@ -19,7 +19,7 @@ import { workbenchStore, type WorkbenchViewType } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { renderLogger } from '~/utils/logger';
-import { EditorPanel } from './EditorPanel';
+const LazyEditorPanel = lazy(() => import('./EditorPanel').then((m) => ({ default: m.EditorPanel })));
 import { Preview } from './Preview';
 import useViewport from '~/lib/hooks';
 import { uploadZipToS3 } from '~/lib/stores/s3';
@@ -523,19 +523,21 @@ export const Workbench = memo(
                 </div>
                 <div className="relative flex-1 overflow-hidden">
                   <View initial={{ x: '0%' }} animate={{ x: selectedView === 'code' ? '0%' : '-100%' }}>
-                    <EditorPanel
-                      editorDocument={currentDocument}
-                      isStreaming={isStreaming}
-                      selectedFile={selectedFile}
-                      files={files}
-                      unsavedFiles={unsavedFiles}
-                      fileHistory={fileHistory}
-                      onFileSelect={onFileSelect}
-                      onEditorScroll={onEditorScroll}
-                      onEditorChange={onEditorChange}
-                      onFileSave={onFileSave}
-                      onFileReset={onFileReset}
-                    />
+                    <Suspense fallback={<div className="flex-1" />}>
+                      <LazyEditorPanel
+                        editorDocument={currentDocument}
+                        isStreaming={isStreaming}
+                        selectedFile={selectedFile}
+                        files={files}
+                        unsavedFiles={unsavedFiles}
+                        fileHistory={fileHistory}
+                        onFileSelect={onFileSelect}
+                        onEditorScroll={onEditorScroll}
+                        onEditorChange={onEditorChange}
+                        onFileSave={onFileSave}
+                        onFileReset={onFileReset}
+                      />
+                    </Suspense>
                   </View>
                   <View
                     initial={{ x: '100%' }}

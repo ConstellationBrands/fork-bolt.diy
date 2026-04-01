@@ -1,22 +1,12 @@
 import { useState, useEffect } from 'react';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement,
-} from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import type { ComponentType } from 'react';
 import type { Chat } from '~/lib/persistence/chats';
 import { classNames } from '~/utils/classNames';
 
-// Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
+type ChartComponents = {
+  Bar: ComponentType<any>;
+  Pie: ComponentType<any>;
+};
 
 type DataVisualizationProps = {
   chats: Chat[];
@@ -28,6 +18,51 @@ export function DataVisualization({ chats }: DataVisualizationProps) {
   const [apiKeyUsage, setApiKeyUsage] = useState<Array<{ provider: string; count: number }>>([]);
   const [averageMessagesPerChat, setAverageMessagesPerChat] = useState<number>(0);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [chartComponents, setChartComponents] = useState<ChartComponents | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCharts() {
+      const [
+        {
+          Chart: ChartJS,
+          CategoryScale,
+          LinearScale,
+          BarElement,
+          Title,
+          Tooltip,
+          Legend,
+          ArcElement,
+          PointElement,
+          LineElement,
+        },
+        { Bar, Pie },
+      ] = await Promise.all([import('chart.js'), import('react-chartjs-2')]);
+
+      ChartJS.register(
+        CategoryScale,
+        LinearScale,
+        BarElement,
+        Title,
+        Tooltip,
+        Legend,
+        ArcElement,
+        PointElement,
+        LineElement,
+      );
+
+      if (!cancelled) {
+        setChartComponents({ Bar, Pie });
+      }
+    }
+
+    loadCharts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const isDark = document.documentElement.classList.contains('dark');
@@ -359,14 +394,26 @@ export function DataVisualization({ chats }: DataVisualizationProps) {
         <div className={cardClasses}>
           <h3 className="text-lg font-medium text-bolt-elements-textPrimary mb-6">Chat History</h3>
           <div className="h-64">
-            <Bar data={chartData.history} options={chartOptions} />
+            {chartComponents ? (
+              <chartComponents.Bar data={chartData.history} options={chartOptions} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-bolt-elements-textTertiary">
+                <div className="i-ph-spinner-gap-bold animate-spin w-6 h-6" />
+              </div>
+            )}
           </div>
         </div>
 
         <div className={cardClasses}>
           <h3 className="text-lg font-medium text-bolt-elements-textPrimary mb-6">Message Distribution</h3>
           <div className="h-64">
-            <Pie data={chartData.roles} options={pieOptions} />
+            {chartComponents ? (
+              <chartComponents.Pie data={chartData.roles} options={pieOptions} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-bolt-elements-textTertiary">
+                <div className="i-ph-spinner-gap-bold animate-spin w-6 h-6" />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -375,7 +422,13 @@ export function DataVisualization({ chats }: DataVisualizationProps) {
         <div className={cardClasses}>
           <h3 className="text-lg font-medium text-bolt-elements-textPrimary mb-6">API Usage by Provider</h3>
           <div className="h-64">
-            <Pie data={chartData.apiUsage} options={pieOptions} />
+            {chartComponents ? (
+              <chartComponents.Pie data={chartData.apiUsage} options={pieOptions} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-bolt-elements-textTertiary">
+                <div className="i-ph-spinner-gap-bold animate-spin w-6 h-6" />
+              </div>
+            )}
           </div>
         </div>
       )}
