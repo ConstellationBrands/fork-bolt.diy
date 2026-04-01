@@ -331,6 +331,12 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
             logger.info(`Reached max token limit (${MAX_TOKENS}): Continuing message (${switchesLeft} switches left)`);
 
             const lastUserMessage = processedMessages.filter((x) => x.role == 'user').slice(-1)[0];
+
+            if (!lastUserMessage) {
+              logger.warn('No user message found when finalizing chat');
+              return;
+            }
+
             const { model, provider } = extractPropertiesFromMessage(lastUserMessage);
             processedMessages.push({ id: generateId(), role: 'assistant', content });
             processedMessages.push({

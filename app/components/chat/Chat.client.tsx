@@ -785,7 +785,7 @@ export const ChatImpl = memo(
 
             return {
               ...message,
-              content: parsedMessages[i] || '',
+              content: parsedMessages?.[i] ?? '',
             };
           })}
         enhancePrompt={() => {
