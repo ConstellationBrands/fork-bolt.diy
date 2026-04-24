@@ -6,15 +6,22 @@ const { renderToReadableStream } = server;
 import { renderHeadToString } from 'remix-island';
 import { Head } from './root';
 import { themeStore } from '~/lib/stores/theme';
+import { createSecurityHeaders } from '~/lib/security';
+
+const WEBCONTAINER_PREFIXES = ['/webcontainer.connect', '/webcontainer.preview'];
 
 export default async function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
   remixContext: any,
-  _loadContext: AppLoadContext,
+  loadContext: AppLoadContext,
 ) {
-  // await initializeModelList({});
+  const url = new URL(request.url);
+  const env = ((loadContext as any)?.cloudflare?.env ?? (loadContext as any)?.env) as
+    | Record<string, string | undefined>
+    | undefined;
+
 
   const readable = await renderToReadableStream(<RemixServer context={remixContext} url={request.url} />, {
     signal: request.signal,
@@ -70,10 +77,26 @@ export default async function handleRequest(
   }
 
   responseHeaders.set('Content-Type', 'text/html');
-
-  responseHeaders.set('Cross-Origin-Embedder-Policy', 'require-corp');
-  responseHeaders.set('Cross-Origin-Opener-Policy', 'same-origin');
   responseHeaders.set('Access-Control-Expose-Headers', 'traceparent, tracestate, x-request-id');
+
+  /*
+   * Merge security headers. Honor any value the loader already set so routes
+   * that need relaxed COEP (WebContainer iframes) can keep their override.
+   */
+  const security = createSecurityHeaders(env, request);
+
+  for (const [key, value] of Object.entries(security)) {
+    if (
+      (key === 'Cross-Origin-Embedder-Policy' || key === 'Cross-Origin-Opener-Policy') &&
+      WEBCONTAINER_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))
+    ) {
+      continue;
+    }
+
+    if (!responseHeaders.has(key)) {
+      responseHeaders.set(key, value);
+    }
+  }
 
   return new Response(body, {
     headers: responseHeaders,

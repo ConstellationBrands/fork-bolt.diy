@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react';
-import { memo, useMemo } from 'react';
+import { lazy, memo, Suspense, useMemo } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import * as Tabs from '@radix-ui/react-tabs';
 import {
@@ -20,11 +20,16 @@ import { renderLogger } from '~/utils/logger';
 import { isMobile } from '~/utils/mobile';
 import { FileBreadcrumb } from './FileBreadcrumb';
 import { FileTree } from './FileTree';
-import { DEFAULT_TERMINAL_SIZE, TerminalTabs } from './terminal/TerminalTabs';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { Search } from './Search'; // <-- Ensure Search is imported
 import { classNames } from '~/utils/classNames'; // <-- Import classNames if not already present
 import { LockManager } from './LockManager'; // <-- Import LockManager
+
+const LazyTerminalTabs = lazy(() =>
+  import('./terminal/TerminalTabs').then((module) => ({ default: module.TerminalTabs })),
+);
+
+const DEFAULT_TERMINAL_SIZE = 25;
 
 interface EditorPanelProps {
   files?: FileMap;
@@ -178,8 +183,20 @@ export const EditorPanel = memo(
             </Panel>
           </PanelGroup>
         </Panel>
-        <PanelResizeHandle />
-        <TerminalTabs />
+        {showTerminal ? (
+          <>
+            <PanelResizeHandle />
+            <Suspense
+              fallback={
+                <div className="flex min-h-[160px] items-center justify-center border-t border-bolt-elements-borderColor bg-bolt-elements-terminals-background text-sm text-bolt-elements-textSecondary">
+                  Loading terminal…
+                </div>
+              }
+            >
+              <LazyTerminalTabs />
+            </Suspense>
+          </>
+        ) : null}
       </PanelGroup>
     );
   },

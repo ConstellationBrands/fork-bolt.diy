@@ -12,6 +12,15 @@ const logger = createScopedLogger('ActionRunner');
 const NOISY_PACKAGE_PROGRESS_RE =
   /(?:progress:\s+resolved|packages:\s+\+|updated|ready up to date|resolved \d+, reused \d+)/i;
 const HEAVY_COMMAND_RE = /\b(?:pnpm|npm|yarn|bun)\s+(?:install|i|run\s+build|build)\b/i;
+const MAX_CAPTURED_OUTPUT_CHARS = 120_000;
+
+function capCapturedOutput(output: string): string {
+  if (output.length <= MAX_CAPTURED_OUTPUT_CHARS) {
+    return output;
+  }
+
+  return output.slice(-MAX_CAPTURED_OUTPUT_CHARS);
+}
 
 function normalizeShellChunkForTimeline(chunk: string): string {
   return chunk
@@ -329,6 +338,10 @@ export class ActionRunner {
     const normalizedFilePath = normalizeArtifactFilePath(action.filePath, webcontainer.workdir);
     const relativePath = nodePath.relative(webcontainer.workdir, normalizedFilePath);
 
+    if (!relativePath || relativePath.startsWith('..') || nodePath.isAbsolute(relativePath)) {
+      throw new Error(`EINVAL: invalid file path outside workdir: ${action.filePath}`);
+    }
+
     let folder = nodePath.dirname(relativePath);
 
     // remove trailing slashes
@@ -423,12 +436,12 @@ export class ActionRunner {
             }
 
             streamState.lastProgressEmitAt = now;
-            output += '[install progress]\n';
+            output = capCapturedOutput(`${output}[install progress]\n`);
 
             return;
           }
 
-          output += normalized;
+          output = capCapturedOutput(`${output}${normalized}`);
         },
       }),
     );

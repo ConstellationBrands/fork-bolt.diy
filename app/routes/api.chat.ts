@@ -71,9 +71,9 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
     }>();
 
   const cookieHeader = request.headers.get('Cookie');
-  const traceParentHeader = request.headers.get('traceparent');
-  const traceStateHeader = request.headers.get('tracestate');
-  const requestIdHeader = request.headers.get('x-request-id');
+  const traceParentHeader = request.headers.get('traceparent') ?? undefined;
+  const traceStateHeader = request.headers.get('tracestate') ?? undefined;
+  const requestIdHeader = request.headers.get('x-request-id') ?? undefined;
 
   const apiKeys = JSON.parse(parseCookies(cookieHeader || '').apiKeys || '{}');
   const providerSettings: Record<string, IProviderSetting> = JSON.parse(
@@ -239,6 +239,12 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
             if (finishReason !== 'length') {
               const lastUserMessage = processedMessages.filter((x) => x.role === 'user').slice(-1)[0];
+
+              if (!lastUserMessage) {
+                logger.warn('No user message found when finalizing chat');
+                return;
+              }
+
               const { model, provider, content: lastUserContent } = extractPropertiesFromMessage(lastUserMessage);
 
               const runContinuationDecision = analyzeRunContinuation({

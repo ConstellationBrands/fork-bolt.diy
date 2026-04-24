@@ -204,31 +204,50 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     }, []);
 
     useEffect(() => {
-      if (typeof window !== 'undefined') {
-        let parsedApiKeys: Record<string, string> | undefined = {};
-
-        try {
-          parsedApiKeys = getApiKeysFromCookies();
-          setApiKeys(parsedApiKeys);
-        } catch (error) {
-          console.error('Error loading API keys from cookies:', error);
-          Cookies.remove('apiKeys');
-        }
-
-        setIsModelLoading('all');
-        fetch('/api/models')
-          .then((response) => response.json())
-          .then((data) => {
-            const typedData = data as { modelList: ModelInfo[] };
-            setModelList(typedData.modelList);
-          })
-          .catch((error) => {
-            console.error('Error fetching model list:', error);
-          })
-          .finally(() => {
-            setIsModelLoading(undefined);
-          });
+      if (typeof window === 'undefined') {
+        return;
       }
+
+      let disposed = false;
+      const modelsRequestController = new AbortController();
+      let parsedApiKeys: Record<string, string> | undefined = {};
+
+      try {
+        parsedApiKeys = getApiKeysFromCookies();
+        setApiKeys(parsedApiKeys);
+      } catch (error) {
+        console.error('Error loading API keys from cookies:', error);
+        Cookies.remove('apiKeys');
+      }
+
+      setIsModelLoading('all');
+      fetch('/api/models', { signal: modelsRequestController.signal })
+        .then((response) => response.json())
+        .then((data) => {
+          if (disposed) {
+            return;
+          }
+
+          const typedData = data as { modelList: ModelInfo[] };
+          setModelList(typedData.modelList);
+        })
+        .catch((error) => {
+          if (error?.name === 'AbortError') {
+            return;
+          }
+
+          console.error('Error fetching model list:', error);
+        })
+        .finally(() => {
+          if (!disposed) {
+            setIsModelLoading(undefined);
+          }
+        });
+
+      return () => {
+        disposed = true;
+        modelsRequestController.abort();
+      };
     }, [providerList, provider]);
 
     // Ensure current model matches current provider when model list updates

@@ -3,6 +3,7 @@ import { MAX_TOKENS, isReasoningModel, type FileMap } from './constants';
 import { getSystemPrompt } from '~/lib/common/prompts/prompts';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, MODIFICATIONS_TAG_NAME, PROVIDER_LIST, WORK_DIR } from '~/utils/constants';
 import type { IProviderSetting } from '~/types/model';
+import type { DesignScheme } from '~/types/design-scheme';
 import { PromptLibrary } from '~/lib/common/prompt-library';
 import { allowedHTMLElements } from '~/utils/markdown';
 import { LLMManager } from '~/lib/modules/llm/manager';
@@ -45,9 +46,11 @@ export async function streamText(props: {
   contextFiles?: FileMap;
   summary?: string;
   messageSliceId?: number;
-  traceParentHeader: string;
-  traceStateHeader: string;
-  requestIdHeader: string;
+  chatMode?: 'discuss' | 'build';
+  designScheme?: DesignScheme;
+  traceParentHeader?: string | null;
+  traceStateHeader?: string | null;
+  requestIdHeader?: string | null;
 }) {
   const {
     messages,
@@ -60,10 +63,13 @@ export async function streamText(props: {
     contextOptimization,
     contextFiles,
     summary,
-    traceParentHeader,
-    traceStateHeader,
-    requestIdHeader,
+    traceParentHeader: _traceParent,
+    traceStateHeader: _traceState,
+    requestIdHeader: _requestId,
   } = props;
+  const traceParentHeader = _traceParent ?? undefined;
+  const traceStateHeader = _traceState ?? undefined;
+  const requestIdHeader = _requestId ?? undefined;
   let currentModel = DEFAULT_MODEL;
   let currentProvider = DEFAULT_PROVIDER.name;
   let processedMessages = messages.map((message) => {

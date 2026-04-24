@@ -13,6 +13,32 @@ interface FileContent {
   path: string;
 }
 
+const IRRELEVANT_PROJECT_PATH_RE =
+  /(^|\/)(node_modules|\.pnpm|\.vite|coverage|\.turbo|\.cache)(\/|$)/i;
+
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/');
+}
+
+function isProjectOwnedPath(path: string): boolean {
+  return !IRRELEVANT_PROJECT_PATH_RE.test(normalizePath(path));
+}
+
+function getPreferredPackageJsonFile(files: FileContent[]): FileContent | undefined {
+  return files
+    .filter((file) => isProjectOwnedPath(file.path) && normalizePath(file.path).endsWith('package.json'))
+    .sort((left, right) => {
+      const leftDepth = normalizePath(left.path).split('/').filter(Boolean).length;
+      const rightDepth = normalizePath(right.path).split('/').filter(Boolean).length;
+
+      if (leftDepth !== rightDepth) {
+        return leftDepth - rightDepth;
+      }
+
+      return normalizePath(left.path).localeCompare(normalizePath(right.path));
+    })[0];
+}
+
 // Helper function to make any command non-interactive
 function makeNonInteractive(command: string): string {
   // Set environment variables for non-interactive mode
@@ -39,12 +65,13 @@ function makeNonInteractive(command: string): string {
 }
 
 export async function detectProjectCommands(files: FileContent[]): Promise<ProjectCommands> {
-  const hasFile = (name: string) => files.some((f) => f.path.endsWith(name));
+  const projectFiles = files.filter((file) => isProjectOwnedPath(file.path));
+  const hasFile = (name: string) => projectFiles.some((f) => f.path.endsWith(name));
   const hasFileContent = (name: string, content: string) =>
-    files.some((f) => f.path.endsWith(name) && f.content.includes(content));
+    projectFiles.some((f) => f.path.endsWith(name) && f.content.includes(content));
 
   if (hasFile('package.json')) {
-    const packageJsonFile = files.find((f) => f.path.endsWith('package.json'));
+    const packageJsonFile = getPreferredPackageJsonFile(files);
 
     if (!packageJsonFile) {
       return { type: '', setupCommand: '', followupMessage: '' };

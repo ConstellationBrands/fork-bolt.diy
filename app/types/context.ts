@@ -24,3 +24,8 @@ export type ToolCallAnnotation = {
   toolName: string;
   toolDescription: string;
 };
+
+export type SegmentsGroupAnnotation = {
+  type: 'segmentsGroup';
+  segmentsGroupId: string;
+};
