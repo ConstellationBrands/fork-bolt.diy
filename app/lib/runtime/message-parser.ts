@@ -124,6 +124,64 @@ function sanitizeLLMOutput(input: string): string {
   out = out.replace(/\n*\[ACTION:[^\]]*\]\n*/gi, '\n');
   out = out.replace(/\n*\[CONTINUE[^\]]*\]\n*/gi, '\n');
 
+  /*
+   * 3. Deduplication: when the LLM restarts from the top on continuation
+   *    instead of picking up where it left off, the full file gets emitted
+   *    twice inside the same <boltAction> block:
+   *
+   *      <boltAction type="file" filePath="foo.tsx">
+   *        ...first (truncated) copy...
+   *        'use client'           ← LLM restarted here
+   *        ...second (complete) copy...
+   *      </boltAction>
+   *
+   *    Detect each file action block that contains a repeated 'use client',
+   *    import block, or opening of the same component, and keep only the
+   *    last occurrence (which is the complete version).
+   *
+   *    Strategy: for every <boltAction type="file"> block, if the content
+   *    contains two or more occurrences of a strong restart signal
+   *    ('use client', 'use server', or "export default function"), split on
+   *    the last occurrence and discard everything before it.
+   */
+  out = out.replace(
+    /(<boltAction[^>]*type="file"[^>]*>)([\s\S]*?)(<\/boltAction>)/g,
+    (_match, openTag: string, content: string, closeTag: string) => {
+      // Signals that clearly mark the start of a new file.
+      // IMPORTANT: signals must be unique within a valid file — if a pattern
+      // can legitimately appear twice (e.g. two different import lines), it
+      // must NOT be used here or it will incorrectly deduplicate valid content.
+      const restartSignals = [
+        // Next.js / React directives — only ever appear once at the top
+        /^'use client'\s*$/m,
+        /^"use client"\s*$/m,
+        /^'use server'\s*$/m,
+        /^"use server"\s*$/m,
+        // Default export — a file has exactly one default export
+        /^export default function\s+\w/m,
+        /^export default class\s+\w/m,
+      ];
+
+      for (const signal of restartSignals) {
+        const indices: number[] = [];
+        let m: RegExpExecArray | null;
+        const re = new RegExp(signal.source, 'gm');
+
+        while ((m = re.exec(content)) !== null) {
+          indices.push(m.index);
+        }
+
+        if (indices.length >= 2) {
+          // Keep only the content starting from the last restart signal
+          content = content.slice(indices[indices.length - 1]);
+          break;
+        }
+      }
+
+      return `${openTag}${content}${closeTag}`;
+    },
+  );
+
   return out;
 }
 
