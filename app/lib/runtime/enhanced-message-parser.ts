@@ -63,7 +63,20 @@ export class EnhancedStreamingMessageParser extends StreamingMessageParser {
   }
 
   private _hasDetectedArtifacts(input: string): boolean {
-    return input.includes('<boltArtifact') || input.includes('</boltArtifact>');
+    if (!input.includes('<boltArtifact') && !input.includes('</boltArtifact>')) {
+      return false;
+    }
+
+    /*
+     * Ensure the artifact tags are NOT only inside markdown code blocks.
+     * A simple .includes() check would match tags inside ```...``` fences,
+     * causing the enhanced parser to skip code-block detection and letting
+     * the base parser try to process the code-block-embedded tags as real
+     * artifacts — which produces wrong file content.
+     */
+    const withoutCodeBlocks = input.replace(/```[\s\S]*?```/g, '');
+
+    return withoutCodeBlocks.includes('<boltArtifact') || withoutCodeBlocks.includes('</boltArtifact>');
   }
 
   private _detectAndWrapCodeBlocks(messageId: string, input: string): string {

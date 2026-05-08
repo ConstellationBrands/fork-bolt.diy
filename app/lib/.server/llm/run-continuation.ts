@@ -17,7 +17,28 @@ export interface RunContinuationDecision {
     | 'run-intent-without-start'
     | 'starter-without-implementation'
     | 'bootstrap-only-shell-actions'
+    | 'unclosed-bolt-tags'
     | 'continuation-not-required';
+}
+
+/**
+ * Detects whether the LLM response ended mid-artifact — i.e. there are more
+ * <boltArtifact> or <boltAction> opens than closes. When this is true the
+ * stream was truncated before the LLM could finish writing files, and we must
+ * continue regardless of run/build intent.
+ */
+export function hasUnclosedBoltTags(content: string): boolean {
+  const artifactOpens = (content.match(/<boltArtifact\b/gi) ?? []).length;
+  const artifactCloses = (content.match(/<\/boltArtifact>/gi) ?? []).length;
+
+  if (artifactOpens > artifactCloses) {
+    return true;
+  }
+
+  const actionOpens = (content.match(/<boltAction\b/gi) ?? []).length;
+  const actionCloses = (content.match(/<\/boltAction>/gi) ?? []).length;
+
+  return actionOpens > actionCloses;
 }
 
 const RUN_INTENT_RE =
@@ -166,6 +187,12 @@ export function analyzeRunContinuation(options: RunContinuationOptions): RunCont
 
   if (chatMode !== 'build') {
     return { shouldContinue: false, reason: 'chat-mode-discuss' };
+  }
+
+  // Highest priority: stream ended with unclosed bolt tags — file content is
+  // incomplete regardless of intent. Continue immediately.
+  if (hasUnclosedBoltTags(assistantContent)) {
+    return { shouldContinue: true, reason: 'unclosed-bolt-tags' };
   }
 
   // Template continuation messages should never trigger run continuation — the

@@ -71,8 +71,62 @@ function cleanoutMarkdownSyntax(content: string) {
 }
 
 function cleanEscapedTags(content: string) {
-  return content.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  /*
+   * Unescape HTML entities but preserve escaped bolt-specific tags.
+   * If the LLM HTML-encodes <boltAction> or <boltArtifact> inside file content
+   * (e.g., in documentation), we must NOT unescape them — doing so would cause
+   * the runner to see real-looking bolt tags in the file content.
+   */
+  return content.replace(/&lt;(?!\/?bolt)/gi, '<').replace(/&gt;/g, '>');
 }
+
+/**
+ * Sanitize raw LLM output before parsing.
+ *
+ * When a model hits its token limit mid-file it sometimes emits a broken
+ * continuation marker instead of a proper closing tag, e.g.:
+ *
+ *   </bolt[ACTION: Continue Response]
+ *   Action>
+ *
+ * or variations like:
+ *
+ *   </bolt[CONTINUE]
+ *   Action>
+ *
+ * These must be collapsed back to </boltAction> (or </boltArtifact> as
+ * appropriate) so the parser can close the current action/artifact correctly
+ * and the garbage never reaches the file content.
+ */
+function sanitizeLLMOutput(input: string): string {
+  // 1. Broken closing tags split across lines by continuation markers:
+  //    </bolt[ACTION: Continue Response]\nAction>  →  </boltAction>
+  //    </bolt[...]\nArtifact>                      →  </boltArtifact>
+  let out = input.replace(/<\/bolt\[[^\]]*\]\s*\n*\s*Action>/gi, '</boltAction>');
+  out = out.replace(/<\/bolt\[[^\]]*\]\s*\n*\s*Artifact>/gi, '</boltArtifact>');
+
+  /*
+   * 2. Continuation markers that land INSIDE file content.
+   *    The model emits these when it hits its token limit mid-response.
+   *    They appear in various forms, sometimes on their own line, sometimes
+   *    inline, sometimes with surrounding blank lines.
+   *
+   *    Patterns covered:
+   *      [ACTION: Continue Response]
+   *      [ACTION: Continue]
+   *      [CONTINUE]
+   *      [CONTINUE RESPONSE]
+   *      [Continue Response]   (mixed case)
+   *
+   *    Strip the marker AND any blank lines immediately around it so we don't
+   *    leave stray empty lines in the written file.
+   */
+  out = out.replace(/\n*\[ACTION:[^\]]*\]\n*/gi, '\n');
+  out = out.replace(/\n*\[CONTINUE[^\]]*\]\n*/gi, '\n');
+
+  return out;
+}
+
 export class StreamingMessageParser {
   #messages = new Map<string, MessageState>();
   #artifactCounter = 0;
@@ -80,6 +134,8 @@ export class StreamingMessageParser {
   constructor(private _options: StreamingMessageParserOptions = {}) {}
 
   parse(messageId: string, input: string) {
+    input = sanitizeLLMOutput(input);
+
     let state = this.#messages.get(messageId);
 
     if (!state) {

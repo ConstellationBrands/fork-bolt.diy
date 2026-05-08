@@ -356,8 +356,40 @@ export class ActionRunner {
       }
     }
 
+    /*
+     * Safety net: if action.content somehow still contains bolt tags (e.g., due to
+     * HTML-entity unescaping or a malformed LLM response), extract the real file
+     * content from inside those tags rather than writing the tags verbatim to disk.
+     */
+    let fileContent = action.content;
+
+    if (typeof fileContent === 'string' && (fileContent.includes('<boltAction') || fileContent.includes('<boltArtifact'))) {
+      logger.warn('action.content contains bolt tags — extracting clean content before write.', {
+        filePath: action.filePath,
+        contentPreview: fileContent.slice(0, 200),
+      });
+
+      const escapedPath = action.filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const specificMatch = fileContent.match(
+        new RegExp(`<boltAction[^>]*type="file"[^>]*filePath="${escapedPath}"[^>]*>([\\s\\S]*?)<\/boltAction>`, 'i'),
+      );
+      const anyFileMatch = fileContent.match(/<boltAction[^>]*type="file"[^>]*>([\s\S]*?)<\/boltAction>/i);
+
+      if (specificMatch?.[1] !== undefined) {
+        fileContent = specificMatch[1].trim() + '\n';
+      } else if (anyFileMatch?.[1] !== undefined) {
+        fileContent = anyFileMatch[1].trim() + '\n';
+      } else {
+        // Last resort: strip all bolt wrapper tags
+        fileContent = fileContent
+          .replace(/<\/?boltArtifact[^>]*>/g, '')
+          .replace(/<\/?boltAction[^>]*>/g, '')
+          .trim() + '\n';
+      }
+    }
+
     try {
-      await webcontainer.fs.writeFile(relativePath, action.content);
+      await webcontainer.fs.writeFile(relativePath, fileContent);
       logger.debug(`File written ${relativePath}`);
     } catch (error) {
       logger.error('Failed to write file\n\n', error);

@@ -14,7 +14,7 @@ import { extractPropertiesFromMessage } from '~/lib/.server/llm/utils';
 import type { DesignScheme } from '~/types/design-scheme';
 import { MCPService } from '~/lib/services/mcpService';
 import { StreamRecoveryManager } from '~/lib/.server/llm/stream-recovery';
-import { analyzeRunContinuation } from '~/lib/.server/llm/run-continuation';
+import { analyzeRunContinuation, hasUnclosedBoltTags } from '~/lib/.server/llm/run-continuation';
 
 const MAX_RUN_CONTINUATION_ATTEMPTS = 5;
 
@@ -246,6 +246,51 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               }
 
               const { model, provider, content: lastUserContent } = extractPropertiesFromMessage(lastUserMessage);
+
+              // Always check for unclosed tags first — even when finishReason is not
+              // 'length', the LLM may have emitted a stop token mid-artifact.
+              if (hasUnclosedBoltTags(content) && runContinuationAttempts < MAX_RUN_CONTINUATION_ATTEMPTS) {
+                runContinuationAttempts += 1;
+                logger.warn(
+                  `Unclosed bolt tags detected (finishReason=${finishReason}) — forcing continuation ` +
+                  `(attempt ${runContinuationAttempts}/${MAX_RUN_CONTINUATION_ATTEMPTS})`,
+                );
+
+                processedMessages.push({ id: generateId(), role: 'assistant', content });
+                processedMessages.push({
+                  id: generateId(),
+                  role: 'user',
+                  content: `[Model: ${model}]\n\n[Provider: ${provider}]\n\n${CONTINUE_PROMPT}`,
+                });
+
+                dataStream.writeMessageAnnotation({
+                  type: 'segmentsGroup',
+                  segmentsGroupId,
+                } satisfies SegmentsGroupAnnotation);
+
+                const result = await streamText({
+                  messages: [...processedMessages],
+                  env: context.cloudflare?.env,
+                  options,
+                  apiKeys,
+                  files,
+                  providerSettings,
+                  promptId,
+                  contextOptimization,
+                  contextFiles: filteredFiles,
+                  chatMode,
+                  designScheme,
+                  summary,
+                  messageSliceId,
+                  traceParentHeader,
+                  traceStateHeader,
+                  requestIdHeader,
+                });
+
+                result.mergeIntoDataStream(dataStream);
+
+                return;
+              }
 
               const runContinuationDecision = analyzeRunContinuation({
                 chatMode: chatMode || 'build',
