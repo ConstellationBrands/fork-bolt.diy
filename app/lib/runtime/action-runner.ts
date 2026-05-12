@@ -156,15 +156,13 @@ export class ActionRunner {
 
     this.#updateAction(actionId, { ...action, ...data.action, executed: !isStreaming });
 
-    this.#currentExecutionPromise = this.#currentExecutionPromise
-      .then(() => {
-        return this.#executeAction(actionId, isStreaming);
-      })
-      .catch((error) => {
-        logger.error('Action execution promise failed:', error);
-      });
+    const executionPromise = this.#currentExecutionPromise.then(() => this.#executeAction(actionId, isStreaming));
 
-    await this.#currentExecutionPromise;
+    this.#currentExecutionPromise = executionPromise.catch((error) => {
+      logger.error('Action execution promise failed:', error);
+    });
+
+    await executionPromise;
 
     return;
   }
@@ -252,18 +250,16 @@ export class ActionRunner {
       this.#updateAction(actionId, { status: 'failed', error: 'Action failed' });
       logger.error(`[${action.type}]:Action failed\n\n`, error);
 
-      if (!(error instanceof ActionCommandError)) {
-        return;
+      if (error instanceof ActionCommandError) {
+        this.onAlert?.({
+          type: 'error',
+          title: 'Dev Server Failed',
+          description: error.header,
+          content: error.output,
+        });
       }
 
-      this.onAlert?.({
-        type: 'error',
-        title: 'Dev Server Failed',
-        description: error.header,
-        content: error.output,
-      });
-
-      // re-throw the error to be caught in the promise chain
+      // re-throw so runAction caller sees failure
       throw error;
     }
   }

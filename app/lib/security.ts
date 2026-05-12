@@ -392,7 +392,16 @@ function parseCookies(header: string | null): Record<string, string> {
 
     const name = trimmed.slice(0, eq).trim();
     const value = trimmed.slice(eq + 1).trim();
-    out[name] = decodeURIComponent(value);
+
+    let decodedValue: string | null = null;
+
+    try {
+      decodedValue = decodeURIComponent(value);
+    } catch {
+      continue;
+    }
+
+    out[name] = decodedValue;
   }
 
   return out;
