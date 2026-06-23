@@ -4,7 +4,6 @@ import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { toast } from 'react-toastify';
 import { Popover, Transition } from '@headlessui/react';
-import { diffLines, type Change } from 'diff';
 import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
 import type { FileHistory } from '~/types/actions';
 import { DiffView } from './DiffView';
@@ -30,6 +29,40 @@ import { ExportChatButton } from '~/components/chat/chatExportAndImport/ExportCh
 import { useChatHistory } from '~/lib/persistence';
 import { streamingState } from '~/lib/stores/streaming';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+
+function splitComparableLines(value: string): string[] {
+  const normalized = value.replace(/\r\n/g, '\n');
+  return normalized.length > 0 ? normalized.split('\n') : [];
+}
+
+function countChangedLines(originalContent: string, currentContent: string) {
+  const originalLines = splitComparableLines(originalContent);
+  const currentLines = splitComparableLines(currentContent);
+  let prefix = 0;
+
+  while (
+    prefix < originalLines.length &&
+    prefix < currentLines.length &&
+    originalLines[prefix] === currentLines[prefix]
+  ) {
+    prefix++;
+  }
+
+  let suffix = 0;
+
+  while (
+    suffix + prefix < originalLines.length &&
+    suffix + prefix < currentLines.length &&
+    originalLines[originalLines.length - 1 - suffix] === currentLines[currentLines.length - 1 - suffix]
+  ) {
+    suffix++;
+  }
+
+  return {
+    additions: Math.max(0, currentLines.length - prefix - suffix),
+    deletions: Math.max(0, originalLines.length - prefix - suffix),
+  };
+}
 
 interface WorkspaceProps {
   chatStarted?: boolean;
@@ -201,26 +234,7 @@ const FileModifiedDropdown = memo(
                                           return { additions: 0, deletions: 0 };
                                         }
 
-                                        const changes = diffLines(normalizedOriginal, normalizedCurrent, {
-                                          newlineIsToken: false,
-                                          ignoreWhitespace: true,
-                                          ignoreCase: false,
-                                        });
-
-                                        return changes.reduce(
-                                          (acc: { additions: number; deletions: number }, change: Change) => {
-                                            if (change.added) {
-                                              acc.additions += change.value.split('\n').length;
-                                            }
-
-                                            if (change.removed) {
-                                              acc.deletions += change.value.split('\n').length;
-                                            }
-
-                                            return acc;
-                                          },
-                                          { additions: 0, deletions: 0 },
-                                        );
+                                        return countChangedLines(normalizedOriginal, normalizedCurrent);
                                       })();
 
                                       const showStats = additions > 0 || deletions > 0;

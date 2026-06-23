@@ -551,7 +551,9 @@ const getSharedHighlighter = async () => {
   }
 
   if (highlighterPromise) {
-    return highlighterPromise;
+    // Await the in-flight promise rather than returning it raw
+    highlighterInstance = await highlighterPromise;
+    return highlighterInstance;
   }
 
   highlighterPromise = getHighlighter({
@@ -577,10 +579,15 @@ const getSharedHighlighter = async () => {
     ],
   });
 
-  highlighterInstance = await highlighterPromise;
-  highlighterPromise = null;
+  try {
+    highlighterInstance = await highlighterPromise;
+  } catch (err) {
+    console.error('Failed to load Shiki highlighter:', err);
+    highlighterInstance = null;
+  } finally {
+    highlighterPromise = null;
+  }
 
-  // Clear the promise once resolved
   return highlighterInstance;
 };
 
@@ -598,25 +605,25 @@ const InlineDiffComparison = memo(({ beforeCode, afterCode, filename, language }
   const { unifiedBlocks, hasChanges, isBinary, error } = useProcessChanges(beforeCode, afterCode);
 
   useEffect(() => {
-    // Fetch the shared highlighter instance
-    getSharedHighlighter().then(setHighlighter);
-
-    /*
-     * No cleanup needed here for the highlighter instance itself,
-     * as it's managed globally. Shiki instances don't typically
-     * need disposal unless you are dynamically loading/unloading themes/languages.
-     * If you were dynamically loading, you might need a more complex
-     * shared instance manager with reference counting or similar.
-     * For static themes/langs, a single instance is sufficient.
-     */
-  }, []); // Empty dependency array ensures this runs only once on mount
+    let cancelled = false;
+    getSharedHighlighter().then((h) => {
+      if (!cancelled) {
+        // h may be null if Shiki failed — set a sentinel so we stop showing the loader
+        setHighlighter(h ?? false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (isBinary || error) {
     return renderContentWarning(isBinary ? 'binary' : 'error');
   }
 
-  // Render a loading state or null while highlighter is not ready
-  if (!highlighter) {
+  // highlighter === null  → still loading
+  // highlighter === false → failed to load, render without syntax highlighting
+  if (highlighter === null) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-bolt-elements-textTertiary">Loading diff...</div>
