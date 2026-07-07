@@ -196,10 +196,7 @@ const actionVariants = {
 };
 
 export function openArtifactInWorkbench(filePath: any) {
-  if (workbenchStore.currentView.get() !== 'code') {
-    workbenchStore.currentView.set('code');
-  }
-
+  workbenchStore.selectWorkbenchView('code', { userInitiated: true });
   workbenchStore.setSelectedFile(`${WORK_DIR}/${filePath}`);
 }
 
@@ -258,7 +255,7 @@ const ActionList = memo(({ actions }: ActionListProps) => {
                   <a
                     onClick={(e) => {
                       e.preventDefault();
-                      workbenchStore.currentView.set('preview');
+                      workbenchStore.selectWorkbenchView('preview', { userInitiated: true });
                     }}
                     className="flex items-center w-full min-h-[28px]"
                   >

@@ -42,6 +42,8 @@ export class WorkbenchStore {
 
   showWorkbench: WritableAtom<boolean> = import.meta.hot?.data.showWorkbench ?? atom(false);
   currentView: WritableAtom<WorkbenchViewType> = import.meta.hot?.data.currentView ?? atom('code');
+  userSelectedView: WritableAtom<WorkbenchViewType | undefined> =
+    import.meta.hot?.data.userSelectedView ?? atom<WorkbenchViewType | undefined>(undefined);
   unsavedFiles: WritableAtom<Set<string>> = import.meta.hot?.data.unsavedFiles ?? atom(new Set<string>());
   actionAlert: WritableAtom<ActionAlert | undefined> =
     import.meta.hot?.data.actionAlert ?? atom<ActionAlert | undefined>(undefined);
@@ -58,6 +60,7 @@ export class WorkbenchStore {
       import.meta.hot.data.unsavedFiles = this.unsavedFiles;
       import.meta.hot.data.showWorkbench = this.showWorkbench;
       import.meta.hot.data.currentView = this.currentView;
+      import.meta.hot.data.userSelectedView = this.userSelectedView;
       import.meta.hot.data.actionAlert = this.actionAlert;
       import.meta.hot.data.supabaseAlert = this.supabaseAlert;
       import.meta.hot.data.deployAlert = this.deployAlert;
@@ -248,6 +251,14 @@ export class WorkbenchStore {
 
   setSelectedFile(filePath: string | undefined) {
     this.#editorStore.setSelectedFile(filePath);
+  }
+
+  selectWorkbenchView(view: WorkbenchViewType, options?: { userInitiated?: boolean }) {
+    if (options?.userInitiated) {
+      this.userSelectedView.set(view);
+    }
+
+    this.currentView.set(view);
   }
 
   async saveFile(filePath: string) {

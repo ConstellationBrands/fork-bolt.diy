@@ -27,6 +27,7 @@ import ProgressCompilation from './ProgressCompilation';
 import type { ProgressAnnotation } from '~/types/context';
 import { SupabaseChatAlert } from '~/components/chat/SupabaseAlert';
 import { expoUrlAtom } from '~/lib/stores/qrCodeStore';
+import { workbenchStore } from '~/lib/stores/workbench';
 import { useStore } from '@nanostores/react';
 import { StickToBottom, useStickToBottomContext } from '~/lib/hooks';
 import { ChatBox } from './ChatBox';
@@ -83,6 +84,110 @@ interface BaseChatProps {
   setSelectedElement?: (element: ElementInfo | null) => void;
   addToolResult?: ({ toolCallId, result }: { toolCallId: string; result: any }) => void;
   onWebSearchResult?: (result: string) => void;
+  queuedVisibleFollowUp?: { content: string; queuedAt: number } | null;
+}
+
+interface WorkspaceCompactPromptProps {
+  input: string;
+  textareaRef?: React.RefObject<HTMLTextAreaElement> | undefined;
+  provider?: ProviderInfo;
+  model?: string;
+  isStreaming: boolean;
+  handleInputChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void | undefined;
+  handlePaste: (event: React.ClipboardEvent) => void;
+  handleSendMessage: (event: React.UIEvent, messageInput?: string) => void;
+  handleStop?: (() => void) | undefined;
+  queuedVisibleFollowUp?: { content: string; queuedAt: number } | null;
+}
+
+function WorkspaceCompactPrompt({
+  input,
+  textareaRef,
+  provider,
+  model,
+  isStreaming,
+  handleInputChange,
+  handlePaste,
+  handleSendMessage,
+  handleStop,
+  queuedVisibleFollowUp,
+}: WorkspaceCompactPromptProps) {
+  const hasPromptDraft = input.trim().length > 0;
+  const buttonLabel = hasPromptDraft ? 'Send workspace prompt' : isStreaming ? 'Stop generation' : 'Send workspace prompt';
+
+  return (
+    <div data-testid="workspace-compact-prompt" className="z-prompt mx-auto w-full max-w-[980px] py-1.5">
+      <div className="rounded-xl border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2/95 px-2.5 py-2 shadow-[0_-8px_26px_rgba(15,23,42,0.10)] backdrop-blur">
+        <div className="flex items-center gap-2">
+          <div className="hidden min-w-0 shrink-0 items-center gap-1.5 text-[11px] text-bolt-elements-textTertiary sm:flex">
+            <span className="rounded-full border border-bolt-elements-borderColor px-2 py-0.5 text-bolt-elements-textSecondary">
+              {(provider as any)?.label || provider?.name || 'Provider'}
+            </span>
+            {model ? <span className="max-w-[170px] truncate">{model}</span> : null}
+          </div>
+          <div className="relative min-w-0 flex-1">
+            <textarea
+              ref={textareaRef}
+              className="modern-scrollbar block max-h-20 min-h-[42px] w-full resize-none rounded-lg border border-bolt-elements-borderColor bg-bolt-elements-background-depth-1 px-3 py-2.5 pr-12 text-sm text-bolt-elements-textPrimary outline-none transition-colors placeholder:text-bolt-elements-textTertiary focus:border-bolt-elements-focus"
+              value={input}
+              onChange={(event) => handleInputChange?.(event)}
+              onPaste={handlePaste}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.shiftKey) {
+                  return;
+                }
+
+                event.preventDefault();
+
+                if (isStreaming && !hasPromptDraft) {
+                  handleStop?.();
+                  return;
+                }
+
+                if (hasPromptDraft) {
+                  handleSendMessage(event);
+                }
+              }}
+              placeholder="Ask to change this project..."
+              rows={1}
+            />
+            <button
+              className={classNames(
+                'absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg border text-sm transition-colors',
+                hasPromptDraft
+                  ? 'border-bolt-elements-focus bg-bolt-elements-button-primary-background text-bolt-elements-button-primary-text hover:bg-bolt-elements-button-primary-backgroundHover'
+                  : isStreaming
+                    ? 'border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-bolt-elements-textPrimary hover:border-bolt-elements-focus'
+                    : 'border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-bolt-elements-textTertiary',
+              )}
+              aria-label={buttonLabel}
+              title={buttonLabel}
+              disabled={!hasPromptDraft && !isStreaming}
+              onClick={(event) => {
+                if (isStreaming && !hasPromptDraft) {
+                  handleStop?.();
+                  return;
+                }
+
+                if (hasPromptDraft) {
+                  handleSendMessage(event);
+                }
+              }}
+            >
+              <div className={isStreaming && !hasPromptDraft ? 'i-ph:stop-fill' : 'i-ph:paper-plane-tilt-fill'} />
+            </button>
+          </div>
+        </div>
+        {queuedVisibleFollowUp ? (
+          <div className="mt-1 truncate px-1 text-[11px] text-bolt-elements-textTertiary">
+            <span className="font-medium text-bolt-elements-textSecondary">Queued:</span>{' '}
+            {queuedVisibleFollowUp.content.slice(0, 160)}
+            {queuedVisibleFollowUp.content.length > 160 ? '...' : ''}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
@@ -134,6 +239,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         throw new Error('addToolResult not implemented');
       },
       onWebSearchResult,
+      queuedVisibleFollowUp,
     },
     ref,
   ) => {
@@ -148,6 +254,8 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const [progressAnnotations, setProgressAnnotations] = useState<ProgressAnnotation[]>([]);
     const expoUrl = useStore(expoUrlAtom);
     const [qrModalOpen, setQrModalOpen] = useState(false);
+    const showWorkbench = useStore(workbenchStore.showWorkbench);
+    const activeSurface: 'chat' | 'workspace' = chatStarted && showWorkbench ? 'workspace' : 'chat';
 
     useEffect(() => {
       if (expoUrl) {

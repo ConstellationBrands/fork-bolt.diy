@@ -228,6 +228,11 @@ export const ChatImpl = memo(
         return;
       }
 
+      // Info alerts (e.g. auto-repair status messages) should not trigger auto-heal
+      if (actionAlert.type === 'info') {
+        return;
+      }
+
       const diagnosis = diagnoseArchitectIssue(actionAlert);
 
       if (!diagnosis) {

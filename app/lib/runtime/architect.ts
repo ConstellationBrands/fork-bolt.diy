@@ -214,6 +214,25 @@ const ARCHITECT_KNOWLEDGE_BASE: ArchitectIssue[] = [
     ],
   },
 
+  {
+    id: 'blocked-shell-mutation',
+    title: 'Shell file mutation blocked',
+    source: 'terminal',
+    patterns: [
+      /Blocked Shell Mutation/i,
+      /Shell[- ]based file mutation/i,
+      /Shell redirection that writes to files/i,
+    ],
+    maxAutoAttempts: 2,
+    guidance: [
+      'Retry the same project change by emitting complete file actions instead of shell commands that write files.',
+      'Do not use shell redirection, `echo >`, `cat >`, `tee`, `sed -i`, inline Node scripts, or inline Python scripts to create or edit project files.',
+      'Use `<boltAction type="file" filePath="...">` with the full file contents for every code change.',
+      'Use shell actions only for dependency install, build, test, or start commands after file actions are emitted.',
+      'Continue from the current workspace and original request; do not re-scaffold unless the workspace is empty or unrecoverable.',
+    ],
+  },
+
   // ── Catch-all fallbacks (must stay last — only match if nothing above did) ─
   {
     id: 'generic-terminal-error',

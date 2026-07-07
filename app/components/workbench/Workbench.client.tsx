@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react';
 import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
-import { memo, useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, useMemo, lazy, Suspense } from 'react';
 import { toast } from 'react-toastify';
 import { Popover, Transition } from '@headlessui/react';
 import { getLanguageFromExtension } from '~/utils/getLanguageFromExtension';
@@ -316,6 +316,7 @@ export const Workbench = memo(
     const unsavedFiles = useStore(workbenchStore.unsavedFiles);
     const files = useStore(workbenchStore.files);
     const selectedView = useStore(workbenchStore.currentView);
+    const userSelectedView = useStore(workbenchStore.userSelectedView);
     const { showChat } = useStore(chatStore);
     const canHideChat = showWorkbench || !showChat;
 
@@ -325,14 +326,27 @@ export const Workbench = memo(
     const [isSyncing, setIsSyncing] = useState(false);
 
     const setSelectedView = (view: WorkbenchViewType) => {
-      workbenchStore.currentView.set(view);
+      workbenchStore.selectWorkbenchView(view, { userInitiated: true });
     };
 
+    const previousHasPreviewRef = useRef(false);
+
     useEffect(() => {
-      if (hasPreview) {
-        setSelectedView('preview');
+      const previewJustBecameAvailable = hasPreview && !previousHasPreviewRef.current;
+      previousHasPreviewRef.current = hasPreview;
+
+      if (previewJustBecameAvailable && !userSelectedView) {
+        workbenchStore.currentView.set('preview');
       }
-    }, [hasPreview]);
+    }, [hasPreview, userSelectedView]);
+
+    useEffect(() => {
+      if (!userSelectedView || userSelectedView === 'preview' || selectedView === userSelectedView) {
+        return;
+      }
+
+      workbenchStore.currentView.set(userSelectedView);
+    }, [selectedView, userSelectedView]);
 
     useEffect(() => {
       workbenchStore.setDocuments(files);
@@ -369,7 +383,7 @@ export const Workbench = memo(
 
     const handleSelectFile = useCallback((filePath: string) => {
       workbenchStore.setSelectedFile(filePath);
-      workbenchStore.currentView.set('diff');
+      workbenchStore.selectWorkbenchView('diff', { userInitiated: true });
     }, []);
 
     const handleSyncFiles = useCallback(async () => {
