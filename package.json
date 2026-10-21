@@ -128,7 +128,7 @@
     "istextorbinary": "^9.5.0",
     "jose": "^5.9.6",
     "js-cookie": "^3.0.5",
-    "jspdf": "^2.5.2",
+    "jspdf": "^4.0.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.485.0",
     "mime": "^4.0.4",
@@ -213,6 +213,12 @@
   },
   "resolutions": {
     "@typescript-eslint/utils": "^8.0.0-alpha.30"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-xml-parser": ">=5.3.5",
+      "tar": ">=7.5.19"
+    }
   },
   "packageManager": "pnpm@9.14.4"
 }
